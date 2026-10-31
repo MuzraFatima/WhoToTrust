@@ -11,7 +11,7 @@ import hydra
 from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig, OmegaConf
 
-from labeltriage.utils import runs
+from labeltriage.utils import runs, tracking
 from labeltriage.utils.seed import seed_everything
 
 log = logging.getLogger(__name__)
@@ -50,6 +50,7 @@ def execute(cfg: DictConfig, run_dir: str | Path) -> dict[str, Any] | None:
     result = TASKS[cfg.experiment.task](cfg)
     result["config"] = OmegaConf.to_container(cfg, resolve=True)
     runs.write_result(run_dir, result)
+    tracking.log_result(cfg, result)
     return result
 
 
