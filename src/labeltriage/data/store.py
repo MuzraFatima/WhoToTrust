@@ -1,4 +1,7 @@
-"""The annotation store: one long table with a row per (item, annotator, vote).
+"""The annotation store: one long table with a row per (item, annotator, label) vote.
+
+An annotator normally casts one vote per item, but some datasets (VariErr) let an annotator pick
+several labels for the same item, so uniqueness is on the label too.
 
 Every stage of the pipeline reads and writes this table, so its schema is the contract between
 modules. Optional columns are filled in by later stages (``is_error`` by the AmbiNoise injector,
@@ -37,7 +40,7 @@ def validate(df: pd.DataFrame, num_classes: int | None = None) -> pd.DataFrame:
     """Check ``df`` against the schema and return it with canonical dtypes.
 
     Raises :class:`SchemaError` on missing columns, null keys, negative or out-of-range labels,
-    unknown split names, or one annotator voting twice on the same item.
+    unknown split names, or the same (item, annotator, label) vote appearing twice.
     """
     missing = [c for c in REQUIRED_COLUMNS if c not in df.columns]
     if missing:
@@ -60,9 +63,11 @@ def validate(df: pd.DataFrame, num_classes: int | None = None) -> pd.DataFrame:
         if bad:
             raise SchemaError(f"unknown split names: {sorted(bad)}")
 
-    dup = out.duplicated(subset=["dataset", "item_id", "annotator_id"])
+    dup = out.duplicated(subset=["dataset", "item_id", "annotator_id", "label"])
     if dup.any():
-        raise SchemaError(f"{int(dup.sum())} duplicate (dataset, item_id, annotator_id) rows")
+        raise SchemaError(
+            f"{int(dup.sum())} duplicate (dataset, item_id, annotator_id, label) rows"
+        )
 
     return out.reset_index(drop=True)
 

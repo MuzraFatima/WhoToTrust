@@ -33,6 +33,11 @@ def test_validate_rejects_duplicate_vote():
         store.validate(df)
 
 
+def test_one_annotator_may_pick_several_labels():
+    extra = _votes().iloc[[0]].assign(label=2)
+    assert len(store.validate(pd.concat([_votes(), extra]))) == 7
+
+
 def test_validate_rejects_out_of_range_label():
     with pytest.raises(store.SchemaError, match="num_classes"):
         store.validate(_votes(), num_classes=2)

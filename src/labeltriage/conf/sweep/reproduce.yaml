@@ -1,0 +1,7 @@
+# Phase 1 reproduction and timing check: one run of each method on each dataset.
+name: reproduce
+fixed: [experiment=reproduce]
+axes:
+  data: [cifar10h, chaosnli, cifar10n]
+  method: [majority_vote, soft_labels]
+  seed: [0]

@@ -51,12 +51,35 @@ runs a sweep. Re-running the same command after a timeout picks up where it stop
 Test splits are locked: any run that asks for one fails unless it sets `stage=final`, which is
 reserved for Phase 6, after the pre-registration tag.
 
+## Preparing data
+
+```bash
+python -m labeltriage.data.prepare cifar10h cifar10n varierr chaosnli --data-dir data
+```
+
+Everything is fetched and checksum-verified automatically except ChaosNLI, whose Dropbox link
+blocks scripts. Download `chaosNLI_v1.0.zip` from the
+[ChaosNLI repository](https://github.com/easonnie/ChaosNLI) in a browser and save it as
+`data/raw/chaosnli/chaosNLI_v1.0.zip`. Until then, an MNLI-only mirror is used.
+
+## Running on Kaggle
+
+In a GPU notebook (T4), with internet switched on:
+
+```bash
+!curl -sSLO https://raw.githubusercontent.com/MuzraFatima/WhoToTrust/main/scripts/kaggle_bootstrap.sh
+!CHAOSNLI_ZIP=/kaggle/input/chaosnli/chaosNLI_v1.0.zip bash kaggle_bootstrap.sh src/labeltriage/conf/sweep/reproduce.yaml
+```
+
+This prepares the data, runs the Phase 1 reproduction (majority vote vs soft labels on every
+dataset, one seed) and prints a summary with `train_seconds` per run for the compute check.
+
 ## Status
 
 | Phase | Scope | State |
 |---|---|---|
 | 0 | Repo, CI, configs, run plumbing | done |
-| 1 | Data loaders, trainer, evaluation, baseline reproduction | — |
+| 1 | Data loaders, trainer, evaluation, baseline reproduction | code done; GPU numbers pending |
 | 2 | AmbiNoise benchmark | — |
 | 3 | Feature library | — |
 | 4 | Triage model and router | — |

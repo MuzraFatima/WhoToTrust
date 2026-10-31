@@ -34,11 +34,15 @@ real errors") was undefined at the annotation level.
 **Amendment.** VariErr annotators may give several labels per item, each with one or more
 explanations, and each explanation receives validity judgments from the other annotators.
 
-- **Primary unit (used for H1): the item–label pair.** A pair `(item, label)` is an **error** if
-  *none* of its explanations is judged valid by a majority of its validators. This matches
-  VariErr's own definition of annotation error. Every other pair is **variation**.
-- **Secondary unit: the annotator–label vote** `(item, annotator, label)`, labelled an error if
-  that annotator's explanations for the label are all judged invalid. Reported, not tested.
+- **Primary unit (used for H1): the item–label pair.** VariErr's release ships an official
+  `error_labels` field per item. A pair `(item, label)` is an **error** if its label is listed
+  there, and **variation** otherwise. The release has 878 such pairs, 129 of them errors.
+- **Consistency check.** Our own reconstruction, "no explanation for the label is judged valid by
+  at least half of its validators", agrees with `error_labels` on 92% of pairs (82% if
+  self-judgments are excluded). This is reported in the dataset card, but the official field is
+  what H1 is tested against.
+- **Secondary unit: the annotator–label vote** `(item, annotator, label)`, labelled an error if the
+  item–label pair is an error. Reported, not tested.
 - Features for VariErr are computed exactly as for AmbiNoise-NLI, with K = 4. G2 runs Dawid–Skene
   over VariErr's 4 annotators. G4 uses VariErr items only, excluding the item itself. G5's probe is
   cross-fitted on VariErr votes. None of these use the validity judgments, so the error labels never
@@ -51,10 +55,19 @@ explanations, and each explanation receives validity judgments from the other an
 ChaosNLI's MNLI part. Without a filter, the transfer test could include items the triage model
 was trained or tuned on.
 
-**Amendment.** Phase 1 matches VariErr against ChaosNLI on `(premise, hypothesis)` after
-whitespace and case normalisation, and records every overlapping ID. Those items are dropped
-from all AmbiNoise-NLI splits before the 70/10/20 split is drawn. The overlap count goes in the
-dataset card. A unit test asserts that the intersection is empty.
+**Measured.** The overlap is total: all 500 VariErr items appear in ChaosNLI-MNLI (1,599 items),
+matched both by `uid` and by normalised `(premise, hypothesis)` text. VariErr even carries each
+item's ChaosNLI vote counts.
+
+**Amendment.** VariErr items are dropped from AmbiNoise-NLI before the 70/10/20 split is drawn.
+That leaves 1,099 MNLI items plus the SNLI part (1,514 items), about 2,600 in total, so the
+AmbiNoise-NLI test split holds about 520 items (CIs near ±1.7 points instead of ±1.5). The overlap
+count goes in the dataset card, and a unit test asserts that the intersection is empty.
+
+**Data access.** ChaosNLI's official zip sits on Dropbox, which blocks scripted downloads. It is
+fetched once by hand and placed at `$LT_DATA_DIR/raw/chaosnli/chaosNLI_v1.0.zip`. The loader
+verifies it by checksum. The `tasksource/chaos-mnli-ambiguity` Hugging Face mirror (MNLI part
+only) is accepted as a fallback for development.
 
 ## A4. G5 training-dynamics probes are cheap and cached
 
@@ -98,6 +111,19 @@ every error type.
   The embeddings are computed once and cached.
 - **Native-error sensitivity** (5% and 15% cut-offs) is computed for the headline settings only,
   3 seeds.
+
+## A7. A clean development set, so gates never touch the test images
+
+**Gap.** AmbiNoise-10H's clean-accuracy test set is the 50,000 CIFAR-10 training images. The
+Phase 1 reproduction, the Phase 2 oracle gate and the Phase 5 pilot all need a clean accuracy
+number, but the blueprint also says test splits are opened only once, in Phase 6.
+
+**Amendment.** The 50,000 CIFAR-10 training images are split once, stratified by class, into
+**5,000 clean-dev** images (readable at any stage) and **45,000 clean-test** images (Phase 6
+only). The split is committed as `conf/splits/cifar10_train_clean.csv`. Clean-test accuracy on
+45,000 images still has a standard error near 0.2 points, so H2's power is unchanged. CIFAR-10.1,
+CIFAR-10-C, the CIFAR-10 test set (for CIFAR-10N models) and the 2,000 held-out CIFAR-10H images
+are all test-only.
 
 ## Budget impact
 

@@ -1,0 +1,14 @@
+name: chaosnli
+domain: text
+num_classes: 3
+train:
+  model_name: microsoft/deberta-v3-base
+  max_length: 128
+  epochs: 4
+  batch_size: 32
+  lr: 2.0e-5
+  weight_decay: 0.01
+  warmup_frac: 0.1
+evals:
+  dev: [val]
+  final: [test]
