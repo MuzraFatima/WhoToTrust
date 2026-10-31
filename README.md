@@ -16,3 +16,51 @@ The project has three parts:
   accuracy and which hurt calibration.
 
 The full research design lives in [`docs/`](docs/).
+
+## Repository layout
+
+```
+src/labeltriage/
+  conf/         Hydra configs (data, method, experiment, sweep)
+  data/         dataset loaders and the shared annotation store
+  utils/        seeding, run bookkeeping, optional W&B tracking
+  run.py        single entry point for one run
+  grid.py       resumable sweep runner
+scripts/        grid launcher and Kaggle / Colab bootstrap
+tests/          pytest suite (runs on CPU, no downloads)
+docs/           blueprint, amendments and build plan
+```
+
+## Getting started
+
+```bash
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -e ".[dev]"            # core + lint/test tools
+pip install -e ".[train,features,crowd]"   # add when you need models and baselines
+pre-commit install
+
+pytest                             # unit tests
+python -m labeltriage.run seed=1   # one smoke run, written under outputs/
+python scripts/run_grid.py src/labeltriage/conf/sweep/smoke.yaml --out outputs/grid
+```
+
+Environment variables `LT_DATA_DIR`, `LT_CACHE_DIR` and `LT_OUTPUT_DIR` move data, caches and run
+outputs. On Kaggle or Colab, `scripts/kaggle_bootstrap.sh SPEC` clones the repo, installs it and
+runs a sweep. Re-running the same command after a timeout picks up where it stopped.
+
+Test splits are locked: any run that asks for one fails unless it sets `stage=final`, which is
+reserved for Phase 6, after the pre-registration tag.
+
+## Status
+
+| Phase | Scope | State |
+|---|---|---|
+| 0 | Repo, CI, configs, run plumbing | done |
+| 1 | Data loaders, trainer, evaluation, baseline reproduction | — |
+| 2 | AmbiNoise benchmark | — |
+| 3 | Feature library | — |
+| 4 | Triage model and router | — |
+| 5 | Baselines, pilot, pre-registration | — |
+| 6 | Main experiments | — |
+| 7 | Harm analysis, ablations, explorer | — |
+| 8 | Paper, release, defence | — |

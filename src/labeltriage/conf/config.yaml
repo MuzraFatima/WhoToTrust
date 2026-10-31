@@ -1,0 +1,28 @@
+defaults:
+  - data: toy
+  - method: majority_vote
+  - experiment: smoke
+  - _self_
+
+seed: 0
+# "dev" runs may only touch train/val splits; "final" unlocks the test splits (Phase 6 only).
+stage: dev
+
+paths:
+  data_dir: ${oc.env:LT_DATA_DIR,data}
+  cache_dir: ${oc.env:LT_CACHE_DIR,cache}
+  output_dir: ${oc.env:LT_OUTPUT_DIR,outputs}
+
+tracking:
+  wandb: false
+  project: labeltriage
+  entity: null
+
+hydra:
+  run:
+    dir: ${paths.output_dir}/${experiment.name}/${data.name}/${method.name}/seed${seed}
+  sweep:
+    dir: ${paths.output_dir}/multirun
+    subdir: ${experiment.name}/${data.name}/${method.name}/seed${seed}
+  job:
+    chdir: false

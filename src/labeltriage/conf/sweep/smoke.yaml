@@ -1,0 +1,5 @@
+name: smoke_grid
+fixed: [experiment=smoke]
+axes:
+  method: [majority_vote, soft_labels]
+  seed: [0, 1, 2]

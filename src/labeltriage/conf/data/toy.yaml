@@ -1,0 +1,4 @@
+name: toy
+num_classes: 3
+num_items: 200
+votes_per_item: 5
