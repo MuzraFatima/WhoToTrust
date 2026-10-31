@@ -112,6 +112,19 @@ every error type.
 - **Native-error sensitivity** (5% and 15% cut-offs) is computed for the headline settings only,
   3 seeds.
 
+## A7. A clean development set, so gates never touch the test images
+
+**Gap.** AmbiNoise-10H's clean-accuracy test set is the 50,000 CIFAR-10 training images. The
+Phase 1 reproduction, the Phase 2 oracle gate and the Phase 5 pilot all need a clean accuracy
+number, but the blueprint also says test splits are opened only once, in Phase 6.
+
+**Amendment.** The 50,000 CIFAR-10 training images are split once, stratified by class, into
+**5,000 clean-dev** images (readable at any stage) and **45,000 clean-test** images (Phase 6
+only). The split is committed as `conf/splits/cifar10_train_clean.csv`. Clean-test accuracy on
+45,000 images still has a standard error near 0.2 points, so H2's power is unchanged. CIFAR-10.1,
+CIFAR-10-C, the CIFAR-10 test set (for CIFAR-10N models) and the 2,000 held-out CIFAR-10H images
+are all test-only.
+
 ## Budget impact
 
 A1 adds about 0.5 GPU-hours. A4 brings G5 well under its original line, and its four headline
