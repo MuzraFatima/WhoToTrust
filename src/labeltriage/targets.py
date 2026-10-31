@@ -34,6 +34,15 @@ class TargetSet:
     def subset(self, mask: np.ndarray) -> TargetSet:
         return TargetSet(self.item_ids[mask], self.targets[mask], self.weights[mask])
 
+    def align(self, item_ids) -> TargetSet:
+        """Reorder rows to follow ``item_ids``; every requested item must be present."""
+        pos = pd.Series(np.arange(len(self.item_ids)), index=self.item_ids)
+        missing = pd.Index(item_ids).difference(pos.index)
+        if len(missing):
+            raise KeyError(f"{len(missing)} items have no target, e.g. {list(missing[:3])}")
+        idx = pos.loc[list(item_ids)].to_numpy()
+        return TargetSet(self.item_ids[idx], self.targets[idx], self.weights[idx])
+
 
 def majority(
     votes: pd.DataFrame, num_classes: int, rng: np.random.Generator | None = None

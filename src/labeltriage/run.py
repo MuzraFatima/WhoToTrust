@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -11,20 +10,12 @@ import hydra
 from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig, OmegaConf
 
+import labeltriage.experiments  # noqa: F401  (registers experiment tasks)
+from labeltriage.tasks import TASKS, task
 from labeltriage.utils import runs, tracking
 from labeltriage.utils.seed import seed_everything
 
 log = logging.getLogger(__name__)
-
-TASKS: dict[str, Callable[[DictConfig], dict[str, Any]]] = {}
-
-
-def task(name: str):
-    def register(fn):
-        TASKS[name] = fn
-        return fn
-
-    return register
 
 
 @task("smoke")

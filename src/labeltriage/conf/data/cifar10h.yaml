@@ -1,0 +1,12 @@
+name: cifar10h
+domain: image
+num_classes: 10
+train:
+  epochs: 60
+  batch_size: 128
+  lr: 0.1
+  weight_decay: 5.0e-4
+  width: 64
+evals:
+  dev: [val, clean_dev]
+  final: [human_test, clean_test, cifar10_1, cifar10_c]

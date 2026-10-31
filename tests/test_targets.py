@@ -40,3 +40,12 @@ def test_build_dispatch():
     assert targets.build("soft", v, 2).targets.tolist() == [[1.0, 0.0]]
     with pytest.raises(KeyError):
         targets.build("nope", v, 2)
+
+
+def test_align_reorders_and_rejects_missing():
+    v = _votes([("b", "1", 1), ("a", "1", 0), ("c", "1", 2)])
+    ts = targets.soft(v, 3).align(["c", "a"])
+    assert ts.item_ids.tolist() == ["c", "a"]
+    np.testing.assert_array_equal(ts.targets.argmax(1), [2, 0])
+    with pytest.raises(KeyError, match="no target"):
+        targets.soft(v, 3).align(["z"])
