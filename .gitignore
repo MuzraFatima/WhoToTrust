@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Data, caches and run outputs
+data/
+cache/
+outputs/
+multirun/
+checkpoints/
+wandb/
+*.ckpt
+*.pt
+*.npy
+*.parquet
+!tests/fixtures/**/*.parquet
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+~$*.docx
