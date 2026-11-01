@@ -242,6 +242,38 @@ fail. Plausible-wrong training errors (GPU) are the remaining planned lever.
 before this split existed. No design decision uses a test-half number, and the paper reports
 this sequence as it happened.
 
+## A14. Switch to the full ChaosNLI data, and the Phase 3 gate miss on lazy errors
+
+**What changed (2026-11-01).** The official `chaosNLI_snli.jsonl` and `chaosNLI_mnli_m.jsonl`
+replaced the MNLI-only Hugging Face mirror as the ChaosNLI source. AmbiNoise-NLI grows from
+1,099 to 2,613 items (1,514 SNLI + 1,099 MNLI after removing VariErr), split 1,830 / 261 / 522.
+The feature cache moved to v4, so no table built on the mirror is reused. Every NLI result
+logged before this date is marked *(mirror)* in `docs/results.md`. None was deleted or
+overwritten.
+
+**Phase 3 gate: miss for lazy errors.** The gate requires every feature group, on its own, to
+reach val AUROC ≥ 0.60. On the full data, G1 (vote statistics) reaches **0.571** for lazy errors
+and misses. All other groups and error types pass, and all groups together reach 0.856 for
+lazy. A likely reason is that a lazy annotator always answers the most common class, so the
+corrupted vote often sides with the majority and does not look like a dissent. **This is
+recorded as a gate miss.** The 0.60 threshold is unchanged, and no threshold, hypothesis or
+feature definition was edited in response. Whether to proceed despite the miss is a decision
+for the project owner, and the paper reports the miss either way.
+
+**Other full-data outcomes, for the record.**
+- The Phase 4 gate passes for every error type: AUROC 0.845 / 0.955 / 0.841 and calibration
+  error 0.047 / 0.027 / 0.037, with 605 held-out votes. At that size the A11 noise floor is
+  below 0.05, so the original bar applied.
+- The VariErr dev-half transfer of the unchanged A13 model rose from 0.756 to 0.833, against
+  0.857 for minority share. The gap is −0.024, 95% CI [−0.059, +0.009]. On this evidence
+  A9's clause (CI above 0) is still not met.
+
+**Note on the transfer training mix.** `experiment/transfer.yaml` has always listed all four
+error types. The CPU development runs (0.756 and 0.833) left out plausible-wrong, because its
+injection model needs a GPU. The final transfer run uses the config as written, with
+plausible-wrong included. Before `prereg-v1`, the dev-half number is re-measured with that mix
+and logged, so the final test-half run is not the first time that mix is seen.
+
 ## Budget impact
 
 A1 adds about 0.5 GPU-hours. A4 brings G5 well under its original line, and its four headline
