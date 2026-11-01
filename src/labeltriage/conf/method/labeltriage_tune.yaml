@@ -1,0 +1,6 @@
+# LabelTriage with nu and h0 in the run directory name, for the router-tuning sweep.
+defaults:
+  - labeltriage
+  - _self_
+
+tag: nu${method.nu}_h${method.h0}
