@@ -146,3 +146,46 @@ def test_g5_dynamics_separate_flipped_votes():
     flipped = np.array(flipped)
     assert auroc_of(flipped, -f["g5_aum"].to_numpy()) > 0.85
     assert auroc_of(flipped, -f["g5_oof_prob"].to_numpy()) > 0.85
+
+
+def _benchmark(n_items=400, seed=0):
+    """AmbiNoise over a synthetic pool whose items have embeddings near their class centre."""
+    from labeltriage.ambinoise.injector import NoiseSpec, inject
+
+    rng = np.random.default_rng(seed)
+    truth = rng.integers(0, 3, n_items)
+    ids = np.array([f"i{i:04d}" for i in range(n_items)])
+    rows = []
+    for i, t in zip(ids, truth, strict=True):
+        alt = (t + 1) % 3
+        share = rng.uniform(0.6, 1.0)
+        rows += [(i, f"h{j}", int(t if rng.random() < share else alt)) for j in range(20)]
+    pool = _votes(rows, split=np.repeat(np.where(np.arange(n_items) < 300, "train", "val"), 20))
+    votes = inject(pool, 3, NoiseSpec(k=5, rate=0.2, error_type="spammer", num_annotators=40))
+    centres = rng.standard_normal((3, 8)) * 3
+    emb = pd.DataFrame(centres[truth] + rng.standard_normal((n_items, 8)), index=ids)
+    plaus = pd.DataFrame(np.eye(3)[truth] * 0.7 + 0.1, index=ids)
+    return votes, emb, plaus
+
+
+def test_build_and_gate_report_on_a_small_benchmark():
+    from labeltriage.features import build as fb
+    from labeltriage.features.evaluate import gate_report
+
+    votes, emb, plaus = _benchmark()
+    feats = fb.build(votes, 3, fb.FeatureInputs(plaus, emb), probe_epochs=5)
+    assert len(feats) == len(votes)
+    assert {c.split("_")[0] for c in feats.columns} == set(fb.GROUPS)
+    assert not feats.isna().any().any()
+
+    rep = gate_report(feats, votes)
+    assert rep["auroc/all"] > 0.75
+    assert abs(rep["auroc/leakage_shuffled"] - 0.5) < 0.1
+
+
+def test_build_refuses_groups_without_cached_inputs():
+    from labeltriage.features import build as fb
+
+    votes, _, _ = _benchmark(n_items=50)
+    with pytest.raises(ValueError, match="embed"):
+        fb.build(votes, 3, fb.FeatureInputs(), groups=("g4",))
