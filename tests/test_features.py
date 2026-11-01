@@ -74,3 +74,49 @@ def test_g2_flags_unreliable_annotators_out_of_fold():
     assert (
         f.loc[bad, "g2_consensus_agreement"].mean() < f.loc[~bad, "g2_consensus_agreement"].mean()
     )
+
+
+def test_g3_plausibility_against_majority():
+    from labeltriage.features import g3_plausibility
+
+    v = _votes([("a", "u1", 0), ("a", "u2", 0), ("a", "u3", 1), ("a", "u4", 2)])
+    probs = pd.DataFrame([[0.6, 0.35, 0.05]], index=["a"])
+    f = g3_plausibility.compute(v, probs)
+    assert f["g3_p_label"].tolist() == pytest.approx([0.6, 0.6, 0.35, 0.05])
+    assert f["g3_rank"].tolist() == [0, 0, 1, 2]
+    assert f["g3_log_ratio_to_majority"].iloc[0] == pytest.approx(0.0)
+    assert f["g3_log_ratio_to_majority"].iloc[3] < f["g3_log_ratio_to_majority"].iloc[2] < 0
+    with pytest.raises(KeyError):
+        g3_plausibility.compute(_votes([("zz", "u", 0)]), probs)
+
+
+def test_g4_neighbours_share_ambiguity_but_not_errors():
+    from labeltriage.features import g4_neighbours
+
+    rng = np.random.default_rng(0)
+    # Cluster A (items a0..a9): genuinely split between classes 0 and 1.
+    # Cluster B (items b0..b9): clear class 2, with one stray vote for 1 on b0.
+    rows = []
+    for i in range(10):
+        rows += [(f"a{i}", "u1", 0), (f"a{i}", "u2", 1), (f"a{i}", "u3", 0)]
+        rows += [(f"b{i}", "u1", 2), (f"b{i}", "u2", 2), (f"b{i}", "u3", 2)]
+    rows.append(("b0", "u4", 1))
+    v = _votes(rows)
+    ids = [f"a{i}" for i in range(10)] + [f"b{i}" for i in range(10)]
+    centres = np.r_[np.tile([1.0, 0, 0], (10, 1)), np.tile([0, 1.0, 0], (10, 1))]
+    emb = pd.DataFrame(centres + 0.01 * rng.standard_normal((20, 3)), index=ids)
+
+    f = g4_neighbours.compute(v, 3, emb, k=5)
+    amb_vote = (v["item_id"] == "a3") & (v["label"] == 1)
+    stray = (v["item_id"] == "b0") & (v["label"] == 1)
+    assert f.loc[amb_vote, "g4_nb_include"].item() == 1.0
+    assert f.loc[stray, "g4_nb_include"].item() == 0.0
+
+
+def test_neighbour_index_excludes_self():
+    from labeltriage.features.g4_neighbours import neighbour_index
+
+    x = np.random.default_rng(1).standard_normal((30, 4))
+    nn = neighbour_index(x, 5)
+    assert nn.shape == (30, 5)
+    assert not (nn == np.arange(30)[:, None]).any()
