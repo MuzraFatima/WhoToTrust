@@ -88,7 +88,20 @@ Each line is one `kaggle_bootstrap.sh <sweep>` call, using sweeps in `src/labelt
    `python scripts/preregister.py outputs/pilot_runs.csv --tune outputs/tune_runs.csv`.
    Commit `docs/preregistration.md` and `git tag prereg-v1` **before** any `stage=final` run.
 5. Phase 6: `main_10h.yaml`, `main_10h_headline_seeds.yaml`, `k_sweep.yaml`, `main_nli.yaml`,
-   `cifar10n.yaml`, `transfer_final.yaml`, then `python scripts/analyze.py outputs/grid`.
+   `cifar10n.yaml`, `transfer_final.yaml`.
+6. Phase 7: `harm.yaml`, `ablations.yaml`, `ablation_backbone.yaml`, then
+   `python scripts/analyze.py outputs/grid` and `python scripts/misrouting.py outputs/grid`.
+
+## Disagreement Explorer
+
+```bash
+pip install -e ".[demo]"
+streamlit run app/explorer.py
+```
+
+It reads the `scored_votes.parquet` every LabelTriage run saves. Each item is plotted by vote
+entropy against its most suspicious vote, coloured by route. Clicking one shows the image, the
+votes, and plain-language reasons for each vote's score.
 
 ## Status
 
@@ -101,5 +114,5 @@ Each line is one `kaggle_bootstrap.sh <sweep>` call, using sweeps in `src/labelt
 | 4 | Triage model and router | code done; first VariErr transfer is a miss (see docs/results.md) |
 | 5 | Baselines, pilot, pre-registration | code done; pilot and prereg-v1 tag pending GPU |
 | 6 | Main experiments | grids and analysis ready; runs after prereg-v1 on GPU |
-| 7 | Harm analysis, ablations, explorer | — |
+| 7 | Harm analysis, ablations, explorer | code done; runs after prereg-v1 on GPU |
 | 8 | Paper, release, defence | — |
