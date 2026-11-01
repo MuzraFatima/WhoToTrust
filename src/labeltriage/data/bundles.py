@@ -84,9 +84,10 @@ def _human(votes: pd.DataFrame, item_ids: np.ndarray, num_classes: int) -> np.nd
     return store.vote_matrix(votes, num_classes, item_order=item_ids).distribution
 
 
-def _clean_cifar10_train(data_dir, split: str) -> EvalSet:
+def _clean_cifar10_train(data_dir, split: str, subset: str | None = None) -> EvalSet:
     x, y = images.cifar10(data_dir, train=True)
-    clean = splits.load_split("cifar10_train_clean")
+    directory = splits.splits_dir() / subset if subset else None
+    clean = splits.load_split("cifar10_train_clean", directory)
     idx = clean.index[clean == split].astype(int).to_numpy()
     return EvalSet(x[idx], y[idx])
 
@@ -102,8 +103,8 @@ def _cifar10_c_mean(data_dir) -> EvalSet:
     return EvalSet(np.concatenate(xs), np.concatenate(ys))
 
 
-def cifar10h(data_dir: str | Path) -> Bundle:
-    votes, items, meta = prepare.load_prepared("cifar10h", data_dir)
+def cifar10h(data_dir: str | Path, subset: str | None = None) -> Bundle:
+    votes, items, meta = prepare.load_prepared("cifar10h", data_dir, subset)
     k = len(meta["classes"])
     cache: dict[str, np.ndarray] = {}
 
@@ -135,17 +136,17 @@ def cifar10h(data_dir: str | Path) -> Bundle:
         inputs_for=inputs_for,
         evals={
             "val": EvalSpec("val", human_set("val")),
-            "clean_dev": EvalSpec("val", lambda: _clean_cifar10_train(data_dir, "val")),
+            "clean_dev": EvalSpec("val", lambda: _clean_cifar10_train(data_dir, "val", subset)),
             "human_test": EvalSpec("test", human_set("test")),
-            "clean_test": EvalSpec("test", lambda: _clean_cifar10_train(data_dir, "test")),
+            "clean_test": EvalSpec("test", lambda: _clean_cifar10_train(data_dir, "test", subset)),
             "cifar10_1": EvalSpec("test", lambda: EvalSet(*images.cifar10_1(data_dir))),
             "cifar10_c": EvalSpec("test", lambda: _cifar10_c_mean(data_dir)),
         },
     )
 
 
-def cifar10n(data_dir: str | Path) -> Bundle:
-    votes, items, meta = prepare.load_prepared("cifar10n", data_dir)
+def cifar10n(data_dir: str | Path, subset: str | None = None) -> Bundle:
+    votes, items, meta = prepare.load_prepared("cifar10n", data_dir, subset)
     k = len(meta["classes"])
     x_train, _ = images.cifar10(data_dir, train=True)
     train_ids, train_votes = _split_votes(votes, items, "train")
@@ -174,8 +175,8 @@ def cifar10n(data_dir: str | Path) -> Bundle:
     )
 
 
-def chaosnli(data_dir: str | Path) -> Bundle:
-    votes, items, meta = prepare.load_prepared("chaosnli", data_dir)
+def chaosnli(data_dir: str | Path, subset: str | None = None) -> Bundle:
+    votes, items, meta = prepare.load_prepared("chaosnli", data_dir, subset)
     k = len(meta["classes"])
 
     def text_set(split: str) -> Callable[[], EvalSet]:
@@ -212,12 +213,13 @@ def ambinoise(base: Bundle, spec, ranking: pd.DataFrame | None = None) -> Bundle
     return dataclasses.replace(base, train_votes=train, votes=noisy)
 
 
-LOADERS: dict[str, Callable[[str | Path], Bundle]] = {
+LOADERS: dict[str, Callable[..., Bundle]] = {
     "cifar10h": cifar10h,
     "cifar10n": cifar10n,
     "chaosnli": chaosnli,
 }
 
 
-def load(name: str, data_dir: str | Path) -> Bundle:
-    return LOADERS[name](data_dir)
+def load(name: str, data_dir: str | Path, subset: str | None = None) -> Bundle:
+    """``subset`` (e.g. ``"mini"``) restricts the bundle to a frozen subset of items."""
+    return LOADERS[name](data_dir, subset)

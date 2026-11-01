@@ -274,6 +274,35 @@ injection model needs a GPU. The final transfer run uses the config as written, 
 plausible-wrong included. Before `prereg-v1`, the dev-half number is re-measured with that mix
 and logged, so the final test-half run is not the first time that mix is seen.
 
+## A15. A mini profile for running locally on a CPU
+
+**What changed (2026-11-01).** The project owner asked for the project to run on their own
+laptop (2-core CPU, 8 GB RAM, no GPU) with local data only. `profile=mini` adds that path:
+
+- **Data.** A fixed subset is drawn within each item's original split and stratified by the
+  majority vote: CIFAR-10H 1,000 / 200 / 300, ChaosNLI 800 / 150 / 250, and clean CIFAR-10
+  500 val / 1,000 test. VariErr is kept whole. The draw is deterministic (seed 20261101) and
+  committed under `conf/splits/mini/`.
+- **Classifier.** An MLP head (one hidden layer of 256, input LayerNorm) is trained on frozen
+  DINOv2-small or MiniLM embeddings, cached once per input set. It replaces ResNet-18 trained
+  from scratch and fine-tuned DeBERTa-v3-base. Targets, weights, routing and Co-teaching go
+  through the same training loop as before.
+- **Evaluation.** CIFAR-10-C is skipped. Mini sweeps are dev stage only.
+
+**What did not change.** The full profile is the default and is identical to before. No
+threshold, hypothesis, feature definition or full-data split was edited.
+
+**Status of mini results.** They are a working demonstration, not evidence for H1–H4:
+
+- the data is smaller;
+- the classifier is different, and its embedding models overlap with the G4/G5 feature
+  inputs;
+- the plausible-wrong injection model is the frozen head rather than ResNet-18 / DeBERTa-small.
+
+The analysis guard rejects any run whose config names a data subset, so mini runs cannot reach
+`docs/results-final.md`. Mini test items belong to the sealed test split, so the stage guard
+keeps mini runs off them until `prereg-v1`, exactly as for full runs.
+
 ## Budget impact
 
 A1 adds about 0.5 GPU-hours. A4 brings G5 well under its original line, and its four headline

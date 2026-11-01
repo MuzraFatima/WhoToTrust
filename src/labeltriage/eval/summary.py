@@ -21,6 +21,7 @@ def collect(root: str | Path) -> pd.DataFrame:
                 "run": str(done.parent.relative_to(root)),
                 "experiment": cfg.get("experiment", {}).get("name"),
                 "data": cfg.get("data", {}).get("name"),
+                "subset": cfg.get("data", {}).get("subset"),
                 "method": cfg.get("method", {}).get("name"),
                 **{
                     f"method.{k}": cfg["method"][k]

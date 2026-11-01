@@ -48,6 +48,11 @@ def _device():
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
+def _projected(out):
+    """CLIP's projected features: a tensor before transformers 5, ``pooler_output`` after."""
+    return out if hasattr(out, "norm") else out.pooler_output
+
+
 def clip_zero_shot(classes: Sequence[str], model_name: str, batch_size: int):
     import torch
     from transformers import CLIPModel, CLIPProcessor
@@ -57,13 +62,13 @@ def clip_zero_shot(classes: Sequence[str], model_name: str, batch_size: int):
     proc = CLIPProcessor.from_pretrained(model_name)
     with torch.no_grad():
         text = proc(text=[f"a photo of a {c}." for c in classes], return_tensors="pt", padding=True)
-        t = model.get_text_features(**{k: v.to(dev) for k, v in text.items()})
+        t = _projected(model.get_text_features(**{k: v.to(dev) for k, v in text.items()}))
         t = t / t.norm(dim=-1, keepdim=True)
 
     @torch.no_grad()
     def run(batch: np.ndarray) -> np.ndarray:
         px = proc(images=list(batch), return_tensors="pt")["pixel_values"].to(dev)
-        f = model.get_image_features(pixel_values=px)
+        f = _projected(model.get_image_features(pixel_values=px))
         f = f / f.norm(dim=-1, keepdim=True)
         return (model.logit_scale.exp() * f @ t.T).softmax(-1).cpu().numpy()
 
@@ -140,9 +145,12 @@ def sentence_embed(model_name: str, batch_size: int):
     return lambda x: batched(run, x, batch_size)
 
 
-def item_inputs(base: str, data_dir: str | Path) -> tuple[pd.Index, Any, str, tuple[str, ...]]:
-    """(item ids, inputs aligned with them, domain, class names) for every item of ``base``."""
-    _, items, meta = prepare.load_prepared(base, data_dir)
+def item_inputs(
+    base: str, data_dir: str | Path, subset: str | None = None
+) -> tuple[pd.Index, Any, str, tuple[str, ...]]:
+    """(item ids, inputs aligned with them, domain, class names) for every item of ``base``
+    (or of its ``subset``)."""
+    _, items, meta = prepare.load_prepared(base, data_dir, subset)
     classes = tuple(meta["classes"])
     if base in ("cifar10h", "cifar10n"):
         x, _ = images.cifar10(data_dir, train=(base == "cifar10n"))
@@ -169,7 +177,7 @@ def load(path: str | Path) -> pd.DataFrame:
 def embed(cfg: DictConfig) -> dict[str, Any]:
     base = cfg.data.get("base", cfg.data.name)
     m = cfg.experiment.models
-    ids, inputs, domain, classes = item_inputs(base, cfg.paths.data_dir)
+    ids, inputs, domain, classes = item_inputs(base, cfg.paths.data_dir, cfg.data.get("subset"))
     if domain == "image":
         plaus = clip_zero_shot(classes, m.clip, m.batch_size)(inputs)
         emb = dinov2_embed(m.dinov2, m.batch_size)(inputs)

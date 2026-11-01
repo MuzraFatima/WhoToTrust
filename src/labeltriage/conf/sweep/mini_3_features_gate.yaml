@@ -1,0 +1,7 @@
+# MINI step 3: per-group detection AUROC and the leakage test (the Phase 3 gate, on mini data).
+name: mini_3_features_gate
+fixed: [profile=mini, experiment=features, method=majority_vote, data.noise.k=5, data.noise.rate=0.2]
+axes:
+  data: [ambinoise_10h, ambinoise_nli]
+  data.noise.error_type: [spammer, swap, lazy, plausible_wrong]
+  seed: [0]

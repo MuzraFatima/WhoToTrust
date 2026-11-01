@@ -1,0 +1,5 @@
+# MINI step 6: train triage on mini AmbiNoise-NLI and score VariErr's real errors (dev half).
+name: mini_6_transfer_dev
+fixed: [profile=mini, experiment=transfer, method=labeltriage, data=ambinoise_nli, stage=dev]
+axes:
+  seed: [0]

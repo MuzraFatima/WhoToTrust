@@ -1,0 +1,6 @@
+# MINI step 2: the cross-fitted plausible-wrong injection model (A1), on the mini items.
+name: mini_2_injection
+fixed: [profile=mini, experiment=injection, method=majority_vote]
+axes:
+  data: [cifar10h, chaosnli]
+  seed: [0]

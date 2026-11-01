@@ -1,0 +1,9 @@
+# MINI step 5: LabelTriage against the two global rules and the oracle, every error type, both
+# bases, three seeds. Dev stage: scored on val and clean_dev, never on test items.
+name: mini_5_compare
+fixed: [profile=mini, experiment=pilot, data.noise.k=5, data.noise.rate=0.2]
+axes:
+  data: [ambinoise_10h, ambinoise_nli]
+  data.noise.error_type: [spammer, swap, lazy, plausible_wrong]
+  method: [majority_vote, soft_labels, oracle, labeltriage]
+  seed: [0, 1, 2]
