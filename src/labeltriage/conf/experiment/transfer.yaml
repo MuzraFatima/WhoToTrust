@@ -1,0 +1,8 @@
+# VariErr transfer: train on AmbiNoise-NLI (K = 3 and 5, every error type), score VariErr's
+# real errors. VariErr is never used for training or tuning.
+name: transfer
+task: transfer
+train_k: [3, 5]
+train_error_types: [spammer, swap, lazy, plausible_wrong]
+probe_epochs: 15
+n_boot: 2000

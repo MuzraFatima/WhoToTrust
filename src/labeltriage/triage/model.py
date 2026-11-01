@@ -41,6 +41,19 @@ def calibration_error(y: np.ndarray, p: np.ndarray, n_bins: int = 15) -> float:
     return float(total)
 
 
+def calibration_noise_floor(
+    p: np.ndarray, quantile: float = 0.95, draws: int = 300, seed: int = 0
+) -> float:
+    """ECE a perfectly calibrated scorer with these predictions would show at this sample size.
+
+    Labels are drawn as Bernoulli(p), so any ECE above zero is pure sampling noise. The returned
+    quantile is the smallest calibration bar this many votes can actually check (amendment A11).
+    """
+    rng = np.random.default_rng(seed)
+    sims = [calibration_error((rng.random(len(p)) < p).astype(float), p) for _ in range(draws)]
+    return float(np.quantile(sims, quantile))
+
+
 @dataclass
 class TriageModel:
     columns: list[str]

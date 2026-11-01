@@ -33,6 +33,19 @@ Run on CPU against the MNLI-only ChaosNLI mirror (1,099 items after removing Var
 Every group clears the 0.60 bar for every error type ✅. The plausible-wrong type and the image
 side wait on the GPU-built injection model and image embeddings.
 
+## Phase 4: triage gate, AmbiNoise-NLI dev data (K = 5, 20%, seed 0)
+
+Held-out half of val, about 200 votes.
+
+| Error type | Val AUROC (≥ 0.80) | Calibration error | Bar (A11) | Pass |
+|---|---|---|---|---|
+| spammer | 0.866 ✅ | 0.067 | 0.073 | ✅ |
+| swap | 0.928 ✅ | 0.056 | 0.055 | ❌ narrowly |
+| lazy | 0.900 ✅ | 0.021 | 0.056 | ✅ |
+
+The swap miss is within sampling noise at 200 votes, but it is recorded as a miss. The decisive
+run uses full ChaosNLI and CIFAR-10H, where the bar is the original 0.05.
+
 ## Early VariErr signal (no training on VariErr)
 
 | Untrained score | AUROC on official error labels (878 item–label pairs, 129 errors) |

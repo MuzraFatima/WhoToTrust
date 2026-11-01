@@ -167,6 +167,19 @@ That is not a pipeline fault, and feature groups are structurally barred from th
 anyway (`features.check_inputs`). The cross-fitting itself is checked separately: out-of-fold
 train AUROC must sit close to held-out val AUROC.
 
+## A11. The calibration gate respects what the sample can measure
+
+**Gap.** Phase 4 asks for triage calibration error under 0.05. ECE is biased upward on small
+samples. On the MNLI-only development data, the held-out val half has about 200 votes, and a
+*perfectly* calibrated scorer with the same predictions shows a mean ECE of 0.043 and a 95th
+percentile of 0.064. The bar cannot be checked there.
+
+**Amendment.** The calibration bar is `max(0.05, q95)`, where `q95` is the 95th-percentile ECE of
+a perfectly calibrated scorer with the same predictions and sample size (300 simulated label
+draws). The bar is reported next to every result. With about 5,000 held votes (CIFAR-10H) `q95`
+is about 0.015, so the original 0.05 applies unchanged. The bar only relaxes where it would
+otherwise be unmeasurable.
+
 ## Budget impact
 
 A1 adds about 0.5 GPU-hours. A4 brings G5 well under its original line, and its four headline

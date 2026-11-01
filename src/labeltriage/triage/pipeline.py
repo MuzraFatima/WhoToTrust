@@ -15,7 +15,7 @@ import pandas as pd
 
 from labeltriage import crossfit
 from labeltriage.eval.metrics import auprc, auroc
-from labeltriage.triage.model import TriageModel, calibration_error
+from labeltriage.triage.model import TriageModel, calibration_error, calibration_noise_floor
 
 
 @dataclass
@@ -61,6 +61,8 @@ def score(
         "triage/val_auroc": auroc(y[held], p[held]),
         "triage/val_auprc": auprc(y[held], p[held]),
         "triage/val_calibration_error": calibration_error(y[held].astype(float), p[held]),
+        "triage/val_calibration_noise_floor": calibration_noise_floor(p[held], seed=seed),
+        "triage/val_held_votes": float(held.sum()),
         "triage/train_oof_auroc": auroc(y[train], p[train]),
     }
     if "g1_entropy" in table:

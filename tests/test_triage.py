@@ -87,3 +87,13 @@ def test_ambiguity_recall_counts_soft_routes_on_split_items():
     )
     routes = pd.Series({"a": "ambiguous", "b": "clear", "c": "clear"})
     assert ambiguity_recall(votes, routes, 2) == 1.0
+
+
+def test_noise_floor_shrinks_with_sample_size():
+    from labeltriage.triage.model import calibration_noise_floor
+
+    rng = np.random.default_rng(0)
+    small = calibration_noise_floor(rng.uniform(0, 0.6, 200))
+    large = calibration_noise_floor(rng.uniform(0, 0.6, 5000))
+    assert large < small
+    assert large < 0.03
