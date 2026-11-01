@@ -31,7 +31,7 @@ export default function App() {
               <i style={{ background: "var(--ambiguous)" }} />
               <i style={{ background: "var(--unreliable)" }} />
             </span>
-            LabelTriage
+            WhoToTrust
           </a>
           <nav className="nav" aria-label="Pages">
             {PAGES.map((p) => (
@@ -48,7 +48,7 @@ export default function App() {
         </Suspense>
       </main>
       <footer className="footer">
-        LabelTriage, laptop edition. Results are from validation data only. MIT licensed.
+        WhoToTrust, laptop edition. Results are from validation data only. MIT licensed.
       </footer>
     </>
   );

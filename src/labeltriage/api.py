@@ -41,7 +41,7 @@ NLI_CLASSES = ("entailment", "neutral", "contradiction")
 BASES = {"10h": "cifar10h", "nli": "chaosnli"}
 DATA_NAME = re.compile(r"ambinoise_(10h|nli)_k(\d+)_r([0-9.]+)_(.+)$")
 PAGE_SIZES = (10, 25, 50, 100)
-NOT_BUILT = """<!doctype html><meta charset="utf-8"><title>LabelTriage</title>
+NOT_BUILT = """<!doctype html><meta charset="utf-8"><title>WhoToTrust</title>
 <body style="font:16px system-ui;max-width:42rem;margin:4rem auto;padding:0 1rem">
 <h1>The web app is not built yet</h1>
 <p>The API is running (see <a href="/api/docs">/api/docs</a>). To build the app, once:</p>
@@ -330,7 +330,7 @@ def create_app(
         Path(root) if root else default_root(),
         Path(data_dir or os.environ.get("LT_DATA_DIR", "data")),
     )
-    app = FastAPI(title="LabelTriage API", docs_url="/api/docs", openapi_url="/api/openapi.json")
+    app = FastAPI(title="WhoToTrust API", docs_url="/api/docs", openapi_url="/api/openapi.json")
 
     @app.middleware("http")
     async def etag(request: Request, call_next):

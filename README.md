@@ -1,13 +1,13 @@
-# LabelTriage
+# WhoToTrust
 
 [![CI](https://github.com/MuzraFatima/WhoToTrust/actions/workflows/ci.yml/badge.svg)](https://github.com/MuzraFatima/WhoToTrust/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**When labels disagree: is it a mistake, or a real difference of opinion?**
+**When labels disagree, who should you trust? Is it a mistake, or a real difference of opinion?**
 
 When several people label the same item and disagree, most pipelines either delete the minority
 votes (noisy-label learning) or keep every vote as a soft label (human label variation).
-LabelTriage decides, **vote by vote**, whether a disagreement is an error or genuine ambiguity,
+WhoToTrust is built around **LabelTriage**, a method that decides, **vote by vote**, whether a disagreement is an error or genuine ambiguity,
 then trains on each differently. This repository holds the method, a benchmark for testing it,
 the experiments, and a web app for exploring every scored vote. It runs end to end on an
 ordinary laptop CPU.
