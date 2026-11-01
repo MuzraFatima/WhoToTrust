@@ -1,0 +1,7 @@
+# Secondary ablation (A13): the transfer model on vote-pattern features (G1) only.
+defaults:
+  - transfer
+  - _self_
+
+name: transfer_g1
+groups: [g1]

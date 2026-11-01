@@ -1,0 +1,8 @@
+# Annotator-count sweep, K = 3 and 10, five methods: 120 runs (~9 T4-hours).
+name: k_sweep
+fixed: [experiment=main, stage=final, data=ambinoise_10h]
+axes:
+  data.noise.k: [3, 10]
+  data.noise.error_type: [spammer, swap, lazy, plausible_wrong]
+  method: [majority_vote, soft_labels, crowdlab, oracle, labeltriage]
+  seed: [0, 1, 2]

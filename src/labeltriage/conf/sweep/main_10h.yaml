@@ -1,0 +1,11 @@
+# Phase 6 main grid, AmbiNoise-10H: 9 methods x 12 settings x 3 seeds = 324 runs (~24 T4-hours).
+# Run only after the prereg-v1 tag.
+name: main_10h
+fixed: [experiment=main, stage=final, data=ambinoise_10h, data.noise.k=5]
+axes:
+  data.noise.error_type: [spammer, swap, lazy, plausible_wrong]
+  data.noise.rate: [0.1, 0.2, 0.4]
+  method:
+    [majority_vote, soft_labels, dawid_skene, crowdlab, confident_learning, coteaching,
+     entropy_weight, oracle, labeltriage]
+  seed: [0, 1, 2]
