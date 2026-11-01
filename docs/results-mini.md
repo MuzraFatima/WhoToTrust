@@ -12,19 +12,23 @@ refuses mini runs.
 
 ## Time
 
+From a clean slate (empty `cache_mini/`, `outputs_mini/` and `.hf_cache/`) with the two
+commands above, on 2026-11-01:
+
 | Step | Runs | Minutes |
 |---|---|---|
-| Reproduce (includes encoding the train and val sets the first time) | 4 | 7.1 |
-| Injection model (includes the one-time DINOv2 encoding of every mini image) | 2 | 10.3 |
-| Feature gates | 8 | 2.0 |
+| Image embeddings: CLIP and DINOv2 downloads plus encoding the 1,500 mini images (once) | 1 | 22.0 |
+| Reproduce (includes encoding the train and val sets for the classifier the first time) | 4 | 5.9 |
+| Injection model | 2 | 1.8 |
+| Feature gates | 8 | 2.6 |
 | LabelTriage gates | 8 | 0.7 |
-| Comparison: 4 methods × 4 error types × 2 datasets × 3 seeds | 96 | 10.7 |
+| Comparison: 4 methods × 4 error types × 2 datasets × 3 seeds | 96 | 11.0 |
 | VariErr transfer (dev half) | 1 | 0.6 |
-| **Total** | **119** | **about 31** |
+| **Total** | **120** | **about 45** |
 
-Times are from the first full run. Switching the NLI encoder (below) and rerunning the NLI steps
-took another 8 minutes. Add model downloads the first time (about 0.8 GB, into `.hf_cache/`).
-Once embeddings are cached, a single training run takes 2–3 seconds.
+**Reproducible exactly.** The clean-slate run matches the earlier run on every metric of all 120
+runs (largest difference 0.0). Once embeddings are cached, a single training run takes 2–3
+seconds, and rerunning `run_mini.py` skips finished runs.
 
 ## What the mini run shows
 
