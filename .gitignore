@@ -36,3 +36,6 @@ htmlcov/
 .DS_Store
 Thumbs.db
 ~$*.docx
+/streamlit.log
+/.pip_cache/
+/.npm_cache/
