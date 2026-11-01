@@ -17,6 +17,19 @@ The project has three parts:
 
 The full research design lives in [`docs/`](docs/).
 
+## Reproduce a headline number
+
+On any machine with Python 3.11+, from a fresh clone, on CPU (about 40 minutes):
+
+```bash
+bash scripts/reproduce_headline.sh
+```
+
+It prints the VariErr dev-half transfer AUROC of the LabelTriage transfer model (expected
+**0.756**) next to the untrained minority-share reference (expected **0.857**). All results so
+far, including the ones that went against the method, are in
+[`docs/results.md`](docs/results.md).
+
 ## Repository layout
 
 ```
@@ -115,4 +128,23 @@ votes, and plain-language reasons for each vote's score.
 | 5 | Baselines, pilot, pre-registration | code done; pilot and prereg-v1 tag pending GPU |
 | 6 | Main experiments | grids and analysis ready; runs after prereg-v1 on GPU |
 | 7 | Harm analysis, ablations, explorer | code done; runs after prereg-v1 on GPU |
-| 8 | Paper, release, defence | — |
+| 8 | Paper, release, defence | release tooling, repro script and paper draft done; final numbers pending GPU |
+
+## Credits
+
+This project builds on open data and tools. Thank you to their authors:
+
+- **CIFAR-10H**: Peterson, Battleday, Griffiths and Russakovsky, *Human Uncertainty Makes
+  Classification More Robust*, ICCV 2019.
+- **CIFAR-10N**: Wei, Zhu, Cheng, Liu, Niu and Liu, *Learning with Noisy Labels Revisited*,
+  ICLR 2022.
+- **ChaosNLI**: Nie, Zhou and Bansal, *What Can We Learn from Collective Human Opinions on
+  Natural Language Inference Data?*, EMNLP 2020.
+- **VariErr NLI**: Weber-Genzel, Peng, de Marneffe and Plank, ACL 2024. It is the closest prior
+  work, and it is used here only as a transfer test.
+- **CIFAR-10**, **CIFAR-10.1** (Recht et al.) and **CIFAR-10-C** (Hendrycks and Dietterich).
+- **cleanlab** (Confident Learning, CROWDLAB) and the Dawid–Skene model (Dawid and Skene, 1979),
+  reimplemented here in NumPy.
+- **Hugging Face Transformers**, **PyTorch**, **LightGBM**, **scikit-learn** and **Hydra**.
+
+Code is MIT-licensed (see `LICENSE`). Each dataset keeps its own licence.
