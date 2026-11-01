@@ -165,7 +165,9 @@ def cifar10n(labels_pt: str | Path, side_info_csv: str | Path) -> Source:
 
 
 def _chaos_part(filename: str) -> str:
-    return "snli" if "snli" in filename.lower() else "mnli"
+    # Check "mnli" first: "chaosnli_mnli_m" also contains the letters "snli" (chao-snli).
+    name = filename.lower()
+    return "mnli" if "mnli" in name else "snli" if "snli" in name else "unknown"
 
 
 def _chaos_rows(path: Path):
@@ -185,34 +187,51 @@ def _chaos_rows(path: Path):
                     yield _chaos_part(path.name), json.loads(line)
 
 
-def chaosnli(path: str | Path) -> Source:
+def chaosnli(paths: str | Path | list[str | Path]) -> Source:
     """ChaosNLI (SNLI and MNLI parts): 100 votes per item, with no annotator identities.
+
+    ``paths`` is the official zip, one jsonl file, or several (e.g. the official
+    ``chaosNLI_snli.jsonl`` and ``chaosNLI_mnli_m.jsonl``). The same item appearing in two inputs
+    is an error, so the MNLI part can never be counted twice by also passing the HF mirror.
 
     Votes get synthetic annotator IDs ``v000``..``v099`` in a fixed order. Those IDs carry no
     meaning; AmbiNoise assigns its own simulated annotators when it samples K votes.
     """
+    if isinstance(paths, str | Path):
+        paths = [paths]
     item_rows, vote_items, vote_labels, vote_ann = [], [], [], []
-    for part, rec in _chaos_rows(Path(path)):
-        ex = rec.get("example", rec)  # official files nest the text; the HF mirror is flat
-        uid = rec["uid"]
-        counts = [int(rec["label_counter"].get(k, 0)) for k in ("e", "n", "c")]
-        labels = np.repeat(np.arange(3), counts)
-        vote_items.extend([uid] * len(labels))
-        vote_labels.extend(labels.tolist())
-        vote_ann.extend(f"v{k:03d}" for k in range(len(labels)))
-        item_rows.append(
-            {
-                "item_id": uid,
-                "premise": ex["premise"],
-                "hypothesis": ex["hypothesis"],
-                "source": part,
-                "gold": NLI_SHORT[rec["majority_label"]],
-                "old_label": NLI_SHORT.get(rec.get("old_label", ""), -1),
-            }
-        )
+    seen: dict[str, str] = {}
+    for path in map(Path, paths):
+        for part, rec in _chaos_rows(path):
+            uid = rec["uid"]
+            if uid in seen:
+                raise ValueError(f"ChaosNLI item {uid} appears in both {seen[uid]} and {path.name}")
+            seen[uid] = path.name
+            _chaos_record(part, rec, item_rows, vote_items, vote_labels, vote_ann)
     votes = _votes_frame("chaosnli", vote_items, vote_ann, vote_labels)
-    items = pd.DataFrame(item_rows).drop_duplicates("item_id").set_index("item_id")
+    items = pd.DataFrame(item_rows).set_index("item_id")
     return Source("chaosnli", votes, items, NLI_CLASSES)
+
+
+def _chaos_record(part, rec, item_rows, vote_items, vote_labels, vote_ann) -> None:
+    """Append one ChaosNLI record's item row and its 100 votes to the running lists."""
+    ex = rec.get("example", rec)  # official files nest the text; the HF mirror is flat
+    uid = rec["uid"]
+    counts = [int(rec["label_counter"].get(k, 0)) for k in ("e", "n", "c")]
+    labels = np.repeat(np.arange(3), counts)
+    vote_items.extend([uid] * len(labels))
+    vote_labels.extend(labels.tolist())
+    vote_ann.extend(f"v{k:03d}" for k in range(len(labels)))
+    item_rows.append(
+        {
+            "item_id": uid,
+            "premise": ex["premise"],
+            "hypothesis": ex["hypothesis"],
+            "source": part,
+            "gold": NLI_SHORT[rec["majority_label"]],
+            "old_label": NLI_SHORT.get(rec.get("old_label", ""), -1),
+        }
+    )
 
 
 # --- VariErr -------------------------------------------------------------------------------

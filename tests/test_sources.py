@@ -90,6 +90,7 @@ def test_chaosnli_reads_official_zip_and_flat_mirror(tmp_path):
     assert set(src.items.index) == {"s1", "m1"}
     assert src.items.loc["s1", "source"] == "snli"
     assert src.items.loc["m1", "gold"] == 2
+    assert src.items.loc["m1", "source"] == "mnli"
     assert src.votes.groupby("item_id").size().tolist() == [100, 100]
 
     flat = tmp_path / "chaos_mnli.jsonl"
@@ -159,3 +160,47 @@ def test_verify_and_fetch_use_checksums(tmp_path):
 def test_manual_file_explains_where_to_put_it(tmp_path):
     with pytest.raises(FileNotFoundError, match="by hand"):
         download.fetch("chaosnli", tmp_path)
+
+
+def test_chaosnli_reads_official_jsonl_files_together(tmp_path):
+    snli = tmp_path / "chaosNLI_snli.jsonl"
+    mnli = tmp_path / "chaosNLI_mnli_m.jsonl"
+    snli.write_text(json.dumps(_chaos_record("s1", (60, 30, 10))) + "\n")
+    mnli.write_text(json.dumps(_chaos_record("m1", (5, 5, 90))) + "\n")
+    src = sources.chaosnli([snli, mnli])
+    assert src.items["source"].to_dict() == {"s1": "snli", "m1": "mnli"}
+    assert len(src.votes) == 200
+
+
+def test_chaosnli_refuses_the_same_item_twice(tmp_path):
+    official = tmp_path / "chaosNLI_mnli_m.jsonl"
+    mirror = tmp_path / "chaos_mnli.jsonl"
+    official.write_text(json.dumps(_chaos_record("m1", (5, 5, 90))) + "\n")
+    mirror.write_text(json.dumps(_chaos_record("m1", (5, 5, 90), nested=False)) + "\n")
+    with pytest.raises(ValueError, match="appears in both"):
+        sources.chaosnli([official, mirror])
+
+
+def test_chaos_part_is_not_fooled_by_the_word_chaosnli():
+    assert sources._chaos_part("chaosNLI_mnli_m.jsonl") == "mnli"
+    assert sources._chaos_part("chaosNLI_snli.jsonl") == "snli"
+    assert sources._chaos_part("chaos_mnli.jsonl") == "mnli"
+
+
+def test_prepare_prefers_official_files_over_the_mirror(tmp_path, monkeypatch):
+    from labeltriage.data import prepare
+
+    present = {"chaosnli_snli", "chaosnli_mnli_m", "chaosnli_mnli_mirror"}
+
+    def fake_fetch(name, data_dir):
+        if name not in present:
+            raise FileNotFoundError(name)
+        return tmp_path / name
+
+    monkeypatch.setattr(download, "fetch", fake_fetch)
+    assert [p.name for p in prepare.chaosnli_paths(tmp_path)] == [
+        "chaosnli_snli",
+        "chaosnli_mnli_m",
+    ]
+    present.discard("chaosnli_snli")
+    assert [p.name for p in prepare.chaosnli_paths(tmp_path)] == ["chaosnli_mnli_mirror"]

@@ -26,7 +26,8 @@ bash scripts/reproduce_headline.sh
 ```
 
 It prints the VariErr dev-half transfer AUROC of the LabelTriage transfer model (expected
-**0.756**) next to the untrained minority-share reference (expected **0.857**). All results so
+**0.833** with the official ChaosNLI files, 0.756 with only the MNLI mirror) next to the
+untrained minority-share reference (expected **0.857**). All results so
 far, including the ones that went against the method, are in
 [`docs/results.md`](docs/results.md).
 
@@ -71,9 +72,11 @@ python -m labeltriage.data.prepare cifar10h cifar10n varierr chaosnli --data-dir
 ```
 
 Everything is fetched and checksum-verified automatically except ChaosNLI, whose Dropbox link
-blocks scripts. Download `chaosNLI_v1.0.zip` from the
-[ChaosNLI repository](https://github.com/easonnie/ChaosNLI) in a browser and save it as
-`data/raw/chaosnli/chaosNLI_v1.0.zip`. Until then, an MNLI-only mirror is used.
+blocks scripts. Download it from the [ChaosNLI repository](https://github.com/easonnie/ChaosNLI)
+in a browser and put `chaosNLI_snli.jsonl` and `chaosNLI_mnli_m.jsonl` in `data/raw/chaosnli/`
+(the unextracted `chaosNLI_v1.0.zip` there works too). Both files are checksum-verified.
+`chaosNLI_alphanli.jsonl` is a different task and is not used. Without the official files, an
+MNLI-only mirror is used, with a warning.
 
 ## Running on Kaggle
 
@@ -81,7 +84,7 @@ In a GPU notebook (T4), with internet switched on:
 
 ```bash
 !curl -sSLO https://raw.githubusercontent.com/MuzraFatima/WhoToTrust/main/scripts/kaggle_bootstrap.sh
-!CHAOSNLI_ZIP=/kaggle/input/chaosnli/chaosNLI_v1.0.zip bash kaggle_bootstrap.sh src/labeltriage/conf/sweep/reproduce.yaml
+!CHAOSNLI_DIR=/kaggle/input/chaosnli bash kaggle_bootstrap.sh src/labeltriage/conf/sweep/reproduce.yaml
 ```
 
 Then, for Phase 2, run `sweep/injection.yaml` (writes the plausible-wrong ranking) followed by

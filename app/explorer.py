@@ -92,7 +92,7 @@ fig = px.scatter(
     opacity=0.7,
 )
 fig.update_traces(marker={"size": 6})
-event = st.plotly_chart(fig, use_container_width=True, on_select="rerun", key="scatter")
+event = st.plotly_chart(fig, width="stretch", on_select="rerun", key="scatter")
 
 picked = None
 if event and event.selection and event.selection.points:
@@ -114,4 +114,4 @@ with left:
         st.image(imgs[0][int(imgs[1][item_id])], width=160, caption=f"item {item_id}")
     st.markdown(f"**Route:** {row['route']}  \n**Votes:** {row['labels']}")
 with right:
-    st.dataframe(explorer.vote_table(scored, item_id), use_container_width=True, hide_index=True)
+    st.dataframe(explorer.vote_table(scored, item_id), width="stretch", hide_index=True)

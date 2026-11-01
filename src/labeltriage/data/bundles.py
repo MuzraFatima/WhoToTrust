@@ -182,7 +182,8 @@ def chaosnli(data_dir: str | Path) -> Bundle:
         def build() -> EvalSet:
             ids, v = _split_votes(votes, items, split)
             human = _human(v, ids, k)
-            return EvalSet(_pairs(items, ids), human.argmax(1), human)
+            # The dataset's own majority label; argmax would break its ties toward entailment.
+            return EvalSet(_pairs(items, ids), items.loc[ids, "gold"].to_numpy(), human)
 
         return build
 

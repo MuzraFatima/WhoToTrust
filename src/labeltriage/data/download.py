@@ -52,6 +52,19 @@ FILES: dict[str, RawFile] = {
         "",  # recorded the first time the official zip is placed by hand
         manual=True,
     ),
+    # The zip's contents, as downloaded by hand from the ChaosNLI repository (Dropbox).
+    "chaosnli_snli": RawFile(
+        "chaosnli/chaosNLI_snli.jsonl",
+        "https://www.dropbox.com/s/h4j7dqszmpt2679/chaosNLI_v1.0.zip?dl=0",
+        "sha256:99f9015ddda7d85f66a087452bc30d53974314fe27e7d589e2f41ad44bd509c1",
+        manual=True,
+    ),
+    "chaosnli_mnli_m": RawFile(
+        "chaosnli/chaosNLI_mnli_m.jsonl",
+        "https://www.dropbox.com/s/h4j7dqszmpt2679/chaosNLI_v1.0.zip?dl=0",
+        "sha256:8eb49b589488e7b1a9ec95fb8a864bd50f0509b4f808eed0aed3f8167617664d",
+        manual=True,
+    ),
     "chaosnli_mnli_mirror": RawFile(
         "chaosnli/chaos_mnli.jsonl",
         "https://huggingface.co/datasets/tasksource/chaos-mnli-ambiguity/resolve/main/chaos_mnli.jsonl",
