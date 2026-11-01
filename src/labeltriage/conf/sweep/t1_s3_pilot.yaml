@@ -1,0 +1,8 @@
+# TIER 1, SESSION 3 (~2.2 GPU-h): pilot for seed spread and detectability, Tier 1 methods only.
+# Cut order rule (prereg-v1.md): seed 1 here is the second thing to cut if Tier 1 must shrink.
+name: t1_s3_pilot
+fixed: [experiment=pilot, data=ambinoise_10h, data.noise.k=5, data.noise.rate=0.2]
+axes:
+  data.noise.error_type: [spammer, swap, lazy, plausible_wrong]
+  method: [majority_vote, soft_labels, oracle, labeltriage]
+  seed: [0, 1]

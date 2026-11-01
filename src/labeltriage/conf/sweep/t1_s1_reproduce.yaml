@@ -1,0 +1,8 @@
+# TIER 1, SESSION 1 (~0.3 GPU-h). Measures the real per-run cost before anything else.
+# Report the train_seconds per run before continuing (README, "Tier 1 run order").
+name: t1_s1_reproduce
+fixed: [experiment=reproduce]
+axes:
+  data: [cifar10h, chaosnli]
+  method: [majority_vote, soft_labels]
+  seed: [0]

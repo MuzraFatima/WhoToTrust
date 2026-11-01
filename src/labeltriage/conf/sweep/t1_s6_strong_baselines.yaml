@@ -1,0 +1,8 @@
+# TIER 1, SESSION 6 (~1.6 GPU-h): the two strongest baselines at the headline settings.
+# Step 9 of Tier 1 and the FIRST cut if the budget must shrink (prereg-v1.md).
+name: t1_s6_strong_baselines
+fixed: [experiment=main, stage=final, data=ambinoise_10h, data.noise.k=5, data.noise.rate=0.2]
+axes:
+  data.noise.error_type: [spammer, swap, lazy, plausible_wrong]
+  method: [crowdlab, confident_learning]
+  seed: [0, 1, 2]

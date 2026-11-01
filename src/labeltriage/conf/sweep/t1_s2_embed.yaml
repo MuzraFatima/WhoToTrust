@@ -1,0 +1,6 @@
+# TIER 1, SESSION 2 (after injection.yaml): frozen-model caches for the datasets Tier 1 uses.
+name: t1_s2_embed
+fixed: [experiment=embed, method=majority_vote]
+axes:
+  data: [cifar10h, chaosnli, varierr]
+  seed: [0]

@@ -1,0 +1,7 @@
+# TIER 1, SESSION 3 (~1.6 GPU-h): Phase 2 gate, oracle vs uncorrupted votes (A5).
+name: t1_s3_oracle_gate
+fixed: [experiment=ambinoise_gate, data=ambinoise_10h, data.noise.k=5, data.noise.rate=0.2]
+axes:
+  data.noise.error_type: [spammer, swap, lazy, plausible_wrong]
+  method: [clean_votes, oracle]
+  seed: [0, 1, 2]
