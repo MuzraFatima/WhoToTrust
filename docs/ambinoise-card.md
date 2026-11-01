@@ -62,6 +62,15 @@ and should be copied here when the benchmark is released.
   uncorrupted votes at K = 5 and 20%, for every error type. Run with `sweep/oracle_gate.yaml`;
   results pending a GPU session.
 
+## Licensing
+
+AmbiNoise contains votes and item identifiers derived from **CIFAR-10H** (Peterson et al., 2019)
+and **ChaosNLI** (Nie et al., 2020). It inherits their terms. **Before any public release, the
+dataset owner must check both licences and set the `license:` field in the Hugging Face card**,
+which is `other` until then. The upload script refuses to run while it is `other`. The draws contain
+no images or premise/hypothesis text, only item IDs, simulated annotator IDs and labels. Users
+fetch the inputs from the original datasets under their own terms.
+
 ## Known limitations
 
 - Synthetic errors may be easier to detect than real ones. That is why `plausible_wrong` exists

@@ -4,8 +4,7 @@
 
 Writes one Parquet file per draw plus the dataset card as README.md. Plausible-wrong draws need
 the injection rankings from sweep/injection.yaml and are skipped (with a note) when absent.
-Uploading is left to the dataset owner, e.g.
-``huggingface-cli upload <user>/ambinoise release/ambinoise --repo-type dataset``.
+Uploading is a separate, deliberate step: see scripts/upload_ambinoise.py.
 """
 
 from __future__ import annotations
@@ -13,7 +12,6 @@ from __future__ import annotations
 import argparse
 import itertools
 import json
-import shutil
 from pathlib import Path
 
 import pandas as pd
@@ -23,6 +21,28 @@ from labeltriage.ambinoise.injector import NoiseSpec, inject
 from labeltriage.data import prepare
 
 BASES = {"cifar10h": ("10h", 10), "chaosnli": ("nli", 3)}
+# Hugging Face dataset-card header. `license: other` is deliberate: the owner sets the real
+# licence after checking CIFAR-10H's and ChaosNLI's terms (see the card's Licensing section).
+HF_FRONT_MATTER = """---
+pretty_name: AmbiNoise
+license: other
+task_categories:
+  - image-classification
+  - text-classification
+tags:
+  - label-noise
+  - annotator-disagreement
+  - human-label-variation
+  - crowdsourcing
+configs:
+  - config_name: cifar10h
+    data_files: "10h/*.parquet"
+  - config_name: chaosnli
+    data_files: "nli/*.parquet"
+---
+
+"""
+
 PUBLIC_COLUMNS = [
     "item_id",
     "annotator_id",
@@ -68,7 +88,9 @@ def build(
                 {"name": name, "votes": len(draw), "error_share": float(draw["is_error"].mean())}
             )
     card = Path(__file__).resolve().parents[1] / "docs" / "ambinoise-card.md"
-    shutil.copy(card, out / "README.md")
+    (out / "README.md").write_text(
+        HF_FRONT_MATTER + card.read_text(encoding="utf8"), encoding="utf8"
+    )
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2))
     return manifest
 
