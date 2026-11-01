@@ -76,3 +76,14 @@ def test_streamlit_app_renders_a_scored_run(tmp_path):
     assert not at.exception
     assert at.metric[0].value == "2"
     assert len(at.dataframe) == 1
+
+
+def test_misrouting_compares_with_oracle_routes():
+    scored = _scored().assign(error_type=["none"] * 4 + ["spammer"] + ["none"] * 5)
+    # Pretend LabelTriage sent item a (a clear item with one error) to the soft route.
+    scored.loc[scored["item_id"] == "a", "route"] = "ambiguous"
+    rep = explorer.misrouting(scored, 10)
+    assert rep["misrouted_items"] == ["a"]
+    assert rep["misrouted_share"] == 0.5
+    assert rep["misrouted_by_error_type"] == {"spammer": 1.0}
+    assert rep["confusion"].loc["clear", "ambiguous"] == 1

@@ -63,3 +63,31 @@ def vote_table(scored: pd.DataFrame, item_id: str) -> pd.DataFrame:
     out = votes[cols].copy()
     out["why"] = ["; ".join(reasons(r)) for _, r in votes.iterrows()]
     return out.reset_index(drop=True)
+
+
+def misrouting(scored: pd.DataFrame, num_classes: int, nu: float = 1.5, h0: float = 0.3) -> dict:
+    """Where LabelTriage's routes differ from the oracle's (routes built from true error labels).
+
+    Returns the route confusion matrix (oracle rows, LabelTriage columns), the share of items
+    misrouted, and, per error type, how often items carrying that error went astray.
+    """
+    from labeltriage.targets import route
+
+    oracle = route(scored, num_classes, scored["is_error"].to_numpy(dtype=float), nu, h0)
+    truth = pd.Series(oracle.routes, index=oracle.item_ids, name="oracle")
+    predicted = scored.groupby("item_id")["route"].first().rename("labeltriage")
+    both = pd.concat([truth, predicted], axis=1)
+    confusion = pd.crosstab(both["oracle"], both["labeltriage"])
+    wrong = both["oracle"] != both["labeltriage"]
+
+    by_type = {}
+    if "error_type" in scored:
+        types = scored[scored["is_error"].astype(bool)].groupby("item_id")["error_type"].first()
+        for etype, ids in types.groupby(types).groups.items():
+            by_type[etype] = float(wrong.reindex(ids).mean())
+    return {
+        "confusion": confusion,
+        "misrouted_share": float(wrong.mean()),
+        "misrouted_by_error_type": by_type,
+        "misrouted_items": both.index[wrong].tolist(),
+    }
