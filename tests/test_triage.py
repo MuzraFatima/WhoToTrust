@@ -97,3 +97,19 @@ def test_noise_floor_shrinks_with_sample_size():
     large = calibration_noise_floor(rng.uniform(0, 0.6, 5000))
     assert large < small
     assert large < 0.03
+
+
+def test_pair_scores_average_votes_per_item_label():
+    from labeltriage.experiments.triage import pair_scores
+
+    votes = pd.DataFrame(
+        {
+            "item_id": ["a", "a", "a", "b"],
+            "label": [0, 0, 2, 1],
+            "is_error": [False, False, True, False],
+        }
+    )
+    pairs = pair_scores(votes, np.array([0.1, 0.3, 0.9, 0.2]))
+    assert pairs[["item_id", "label"]].values.tolist() == [["a", 0], ["a", 2], ["b", 1]]
+    assert pairs["p"].tolist() == pytest.approx([0.2, 0.9, 0.2])
+    assert pairs["is_error"].tolist() == [False, True, False]
