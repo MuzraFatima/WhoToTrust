@@ -1,0 +1,7 @@
+# Second image backbone: LabelTriage trained on frozen DINOv2 + MLP head (6 runs).
+name: ablation_backbone
+fixed: [experiment=ablation, stage=final, data=ambinoise_10h, data.noise.k=5, data.noise.rate=0.2]
+axes:
+  data.noise.error_type: [spammer, plausible_wrong]
+  method: [lt_dinov2_head]
+  seed: [0, 1, 2]

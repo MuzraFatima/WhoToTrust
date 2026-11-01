@@ -1,0 +1,3 @@
+# Phase 7 harm analysis (H3). Reads test splits, so stage=final.
+name: harm
+task: train_eval

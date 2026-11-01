@@ -1,0 +1,4 @@
+# Harm counterfactual (H3): see labeltriage.harm.
+name: neither
+target: harm
+counterfactual: neither

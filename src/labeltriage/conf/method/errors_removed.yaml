@@ -1,0 +1,4 @@
+# Harm counterfactual (H3): see labeltriage.harm.
+name: errors_removed
+target: harm
+counterfactual: errors_removed

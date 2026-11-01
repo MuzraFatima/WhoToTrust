@@ -1,0 +1,8 @@
+# Phase 7 ablations, 3 seeds on the four headline settings: 8 variants x 4 x 3 = 96 runs (~7 T4-hours).
+# Feature-group removal covers "with and without G3"; the DINOv2 head is the second backbone.
+name: ablations
+fixed: [experiment=ablation, stage=final, data=ambinoise_10h, data.noise.k=5, data.noise.rate=0.2]
+axes:
+  data.noise.error_type: [spammer, swap, lazy, plausible_wrong]
+  method: [lt_no_g1, lt_no_g2, lt_no_g3, lt_no_g4, lt_no_g5, lt_hard_drop, lt_two_routes, lt_mlp]
+  seed: [0, 1, 2]

@@ -1,0 +1,7 @@
+# Ablation: LabelTriage without feature group g3.
+defaults:
+  - labeltriage
+  - _self_
+
+tag: no_g3
+groups: [g1,g2,g4,g5]

@@ -113,3 +113,29 @@ def test_coteaching_schedule_ramps_then_holds():
     assert f(0) == 0.0
     assert f(5) == pytest.approx(0.15)
     assert f(20) == pytest.approx(0.3)
+
+
+def test_frozen_dino_head_trains_only_the_head():
+    from types import SimpleNamespace
+
+    from labeltriage.train.models import FrozenDinoHead
+
+    class FakeBackbone(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.proj = torch.nn.Linear(3, 8)
+
+        def forward(self, pixel_values):
+            assert pixel_values.shape[-1] == 224
+            return SimpleNamespace(pooler_output=self.proj(pixel_values.mean(dim=(2, 3))))
+
+    model = FrozenDinoHead(2, backbone=FakeBackbone(), feature_dim=8)
+    model.train()
+    assert not model.backbone.training
+    before = model.backbone.proj.weight.clone()
+    out = model(torch.randn(4, 3, 32, 32))
+    out.sum().backward()
+    assert out.shape == (4, 2)
+    assert model.backbone.proj.weight.grad is None
+    assert torch.equal(before, model.backbone.proj.weight)
+    assert model.head[0].weight.grad is not None

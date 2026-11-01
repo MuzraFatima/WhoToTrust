@@ -68,7 +68,7 @@ def confident_learning_targets(
 
     mv = targets.majority(votes, num_classes, rng)
     labels = mv.targets.argmax(axis=1)
-    issues = find_label_issues(labels, pred_probs, filter_by="prune_by_noise_rate")
+    issues = find_label_issues(labels, pred_probs, filter_by="prune_by_noise_rate", n_jobs=1)
     return targets.TargetSet(mv.item_ids, mv.targets, (~issues).astype(float))
 
 
@@ -86,6 +86,6 @@ def crowdlab_targets(
         matrix, pred_probs, verbose=False, return_annotator_stats=False
     )
     consensus = out["label_quality"]["consensus_label"].to_numpy(dtype=int)
-    issues = find_label_issues(consensus, pred_probs, filter_by="prune_by_noise_rate")
+    issues = find_label_issues(consensus, pred_probs, filter_by="prune_by_noise_rate", n_jobs=1)
     onehot = np.eye(num_classes)[consensus]
     return targets.TargetSet(matrix.index.to_numpy(), onehot, (~issues).astype(float))

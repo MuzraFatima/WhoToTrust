@@ -1,0 +1,7 @@
+# Ablation: two routes only (no unreliable route): nu = 0 never down-weights.
+defaults:
+  - labeltriage
+  - _self_
+
+tag: two_routes
+nu: 0.0
