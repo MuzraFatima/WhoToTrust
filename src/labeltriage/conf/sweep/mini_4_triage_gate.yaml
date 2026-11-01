@@ -1,0 +1,7 @@
+# MINI step 4: calibrated LabelTriage error detection (the Phase 4 gate, on mini data).
+name: mini_4_triage_gate
+fixed: [profile=mini, experiment=triage, method=labeltriage, data.noise.k=5, data.noise.rate=0.2]
+axes:
+  data: [ambinoise_10h, ambinoise_nli]
+  data.noise.error_type: [spammer, swap, lazy, plausible_wrong]
+  seed: [0]

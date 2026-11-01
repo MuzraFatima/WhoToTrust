@@ -32,6 +32,7 @@ def test_mini_profile_uses_the_subset_frozen_trainer_and_own_folders(data):
         ("cifar10h", {"train": 1000, "val": 200, "test": 300}),
         ("chaosnli", {"train": 800, "val": 150, "test": 250}),
         ("cifar10_train_clean", {"val": 500, "test": 1000}),
+        ("varierr", {"val": 250, "test": 250}),
     ],
 )
 def test_committed_mini_subsets_keep_each_items_original_split(name, sizes):
@@ -218,3 +219,17 @@ def test_train_eval_under_the_mini_profile_uses_the_frozen_head(tmp_path, monkey
     assert seen["subset"] == "mini"
     assert result["metrics"]["val/acc"] >= 0.9
     assert len(result["history"]) == 30
+
+
+def test_every_mini_sweep_point_composes_and_stays_off_the_test_split():
+    from omegaconf import OmegaConf
+
+    from labeltriage.grid import expand
+
+    sweeps = sorted((splits.splits_dir().parent / "sweep").glob("mini_*.yaml"))
+    assert len(sweeps) == 6
+    for path in sweeps:
+        for point in expand(OmegaConf.load(path)):
+            cfg = _compose(*point)
+            assert cfg.data.subset == "mini", (path.name, point)
+            assert cfg.stage == "dev", (path.name, point)

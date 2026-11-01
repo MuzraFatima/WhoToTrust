@@ -1,0 +1,8 @@
+# MINI (local CPU), step 1: majority vote vs soft labels on the mini subsets. Dev stage only:
+# mini test items are a subset of the real test split, which stays sealed until prereg-v1.
+name: mini_1_reproduce
+fixed: [profile=mini, experiment=reproduce]
+axes:
+  data: [cifar10h, chaosnli]
+  method: [majority_vote, soft_labels]
+  seed: [0]

@@ -104,6 +104,8 @@ def main(argv: list[str] | None = None) -> int:
     split = clean_split(args.data_dir)
     splits.save_split(split, "cifar10_train_clean", out)
     print(f"cifar10_train_clean: {split.value_counts().to_dict()}")
+    # VariErr is already small (500 items, transfer only), so the mini profile keeps all of it.
+    splits.save_split(splits.load_split("varierr"), "varierr", out)
 
     if args.seed_cache:
         for line in seed_cache(Path(args.cache), Path(args.mini_cache)):
