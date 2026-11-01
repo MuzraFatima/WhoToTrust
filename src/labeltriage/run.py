@@ -12,7 +12,7 @@ from omegaconf import DictConfig, OmegaConf
 
 import labeltriage.experiments  # noqa: F401  (registers experiment tasks)
 from labeltriage.tasks import TASKS, task
-from labeltriage.utils import runs, tracking
+from labeltriage.utils import provenance, runs, tracking
 from labeltriage.utils.seed import seed_everything
 
 log = logging.getLogger(__name__)
@@ -44,6 +44,7 @@ def execute(cfg: DictConfig, run_dir: str | Path) -> dict[str, Any] | None:
     for name, table in result.pop("_artifacts", {}).items():
         table.to_parquet(run_dir / f"{name}.parquet", index=False)
     result["config"] = OmegaConf.to_container(cfg, resolve=True)
+    result["provenance"] = provenance.current()
     runs.write_result(run_dir, result)
     tracking.log_result(cfg, result)
     return result

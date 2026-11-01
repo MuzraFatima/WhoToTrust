@@ -15,8 +15,10 @@ def collect(root: str | Path) -> pd.DataFrame:
     for done in sorted(Path(root).rglob(DONE)):
         result = json.loads((done.parent / RESULT).read_text())
         cfg = result.get("config", {})
+        prov = result.get("provenance", {})
         rows.append(
             {
+                "run": str(done.parent.relative_to(root)),
                 "experiment": cfg.get("experiment", {}).get("name"),
                 "data": cfg.get("data", {}).get("name"),
                 "method": cfg.get("method", {}).get("name"),
@@ -29,6 +31,7 @@ def collect(root: str | Path) -> pd.DataFrame:
                 "stage": cfg.get("stage"),
                 "train_seconds": result.get("train_seconds"),
                 "device": result.get("device"),
+                **{f"prov.{k}": v for k, v in prov.items()},
                 **result.get("metrics", {}),
             }
         )
@@ -38,6 +41,7 @@ def collect(root: str | Path) -> pd.DataFrame:
 def aggregate(df: pd.DataFrame, by=("experiment", "data", "method")) -> pd.DataFrame:
     """Mean and standard deviation over seeds for every numeric column."""
     numeric = df.select_dtypes("number").columns.drop("seed", errors="ignore")
+    numeric = [c for c in numeric if not c.startswith("prov.")]
     grouped = df.groupby(list(by))[list(numeric)]
     out = grouped.agg(["mean", "std"])
     out.columns = [f"{m}_{s}" for m, s in out.columns]
