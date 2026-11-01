@@ -24,7 +24,7 @@ def test_embed_writes_both_caches(tmp_path, monkeypatch, domain):
     ids = pd.Index(["a", "b", "c"], name="item_id")
     classes = ("x", "y", "z") if domain == "image" else ("entailment", "neutral", "contradiction")
     monkeypatch.setattr(
-        embed, "item_inputs", lambda base, d: (ids, list(range(3)), domain, classes)
+        embed, "item_inputs", lambda base, d, subset=None: (ids, list(range(3)), domain, classes)
     )
     probs = lambda *a, **k: (lambda x: np.full((len(x), 3), 1 / 3))  # noqa: E731
     vecs = lambda *a, **k: (lambda x: np.arange(len(x) * 4.0).reshape(len(x), 4))  # noqa: E731
@@ -46,3 +46,12 @@ def test_embed_writes_both_caches(tmp_path, monkeypatch, domain):
 def test_batched_concatenates_in_order():
     out = embed.batched(lambda b: np.asarray(b)[:, None] * 2, list(range(7)), 3)
     assert out.ravel().tolist() == [0, 2, 4, 6, 8, 10, 12]
+
+
+def test_projected_accepts_both_transformers_return_types():
+    torch = pytest.importorskip("torch")
+    from types import SimpleNamespace
+
+    t = torch.ones(2, 3)
+    assert embed._projected(t) is t
+    assert embed._projected(SimpleNamespace(pooler_output=t)) is t

@@ -48,6 +48,11 @@ def _device():
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
+def _projected(out):
+    """CLIP's projected features: a tensor before transformers 5, ``pooler_output`` after."""
+    return out if hasattr(out, "norm") else out.pooler_output
+
+
 def clip_zero_shot(classes: Sequence[str], model_name: str, batch_size: int):
     import torch
     from transformers import CLIPModel, CLIPProcessor
@@ -57,13 +62,13 @@ def clip_zero_shot(classes: Sequence[str], model_name: str, batch_size: int):
     proc = CLIPProcessor.from_pretrained(model_name)
     with torch.no_grad():
         text = proc(text=[f"a photo of a {c}." for c in classes], return_tensors="pt", padding=True)
-        t = model.get_text_features(**{k: v.to(dev) for k, v in text.items()})
+        t = _projected(model.get_text_features(**{k: v.to(dev) for k, v in text.items()}))
         t = t / t.norm(dim=-1, keepdim=True)
 
     @torch.no_grad()
     def run(batch: np.ndarray) -> np.ndarray:
         px = proc(images=list(batch), return_tensors="pt")["pixel_values"].to(dev)
-        f = model.get_image_features(pixel_values=px)
+        f = _projected(model.get_image_features(pixel_values=px))
         f = f / f.norm(dim=-1, keepdim=True)
         return (model.logit_scale.exp() * f @ t.T).softmax(-1).cpu().numpy()
 
