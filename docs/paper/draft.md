@@ -11,11 +11,12 @@ kind of disagreement it is looking at, and whether training on that distinction 
 contribute **AmbiNoise**, a benchmark that injects controlled, labelled errors on top of real
 many-annotator vote distributions (CIFAR-10H, ChaosNLI), so that every vote is known to be an
 error or genuine variation. We also contribute **LabelTriage**, a calibrated per-vote error scorer
-that routes each item to a hard, soft or down-weighted target. In development runs on AmbiNoise-NLI,
-LabelTriage detects injected errors well (AUROC 0.84–0.91). On VariErr's *real* errors, a model
-trained on synthetic errors transfers poorly: it reaches 0.60 AUROC on a development half, against
-0.86 for simply counting votes. Removing two features that encode synthetic artefacts lifts this
-to 0.76, still short of vote counting. **[GPU: generalisation, calibration and harm results.]**
+that routes each item to a hard, soft or down-weighted target. In development runs on AmbiNoise-NLI
+(2,613 items), LabelTriage detects injected errors well (AUROC 0.84–0.96). On VariErr's *real*
+errors, a model trained on synthetic errors first transferred poorly: 0.60 AUROC on a development
+half, against 0.86 for simply counting votes. Removing two features that encode synthetic
+artefacts, and training on the full data, lifts this to 0.83. That is level with vote counting
+within noise, but not better. **[GPU: generalisation, calibration and harm results.]**
 
 ## 1. Introduction
 
@@ -85,23 +86,24 @@ deviation from the original plan, together with the reason and the order in whic
 
 ### 5.1 Error detection on AmbiNoise (development data, CPU)
 
-On AmbiNoise-NLI (K = 5, 20% error) every feature group alone exceeds 0.64 val AUROC.
+On AmbiNoise-NLI with full ChaosNLI (K = 5, 20% error, 2,613 items):
 
-| Error type | All groups | Entropy only | Minority share only |
-|---|---|---|---|
-| spammer | 0.825 | 0.647 | 0.750 |
-| swap | 0.919 | 0.635 | 0.730 |
-| lazy | 0.924 | 0.626 | 0.601 |
+| Error type | All groups | Entropy only | Minority share only | Weakest single group |
+|---|---|---|---|---|
+| spammer | 0.864 | 0.646 | 0.767 | G5 0.749 |
+| swap | 0.960 | 0.641 | 0.740 | G1 0.744 |
+| lazy | 0.856 | 0.567 | 0.549 | **G1 0.571** |
 
-Shuffled-label detectors average 0.47–0.48, below chance, as a noise-fitted model can be. They
-never exceed it, so there is no sign of leakage. The calibrated triage model reaches AUROC 0.84 /
-0.91 / 0.89. Calibration meets the sample-size-aware bar for spammer and lazy but not for swap
-(0.056 against 0.054).
+The pre-registered Phase 3 gate asks every feature group, alone, to reach 0.60. **It is missed for
+lazy errors**, where vote statistics alone reach 0.571 (A14). Lazy votes pick the most common
+class and so often side with the majority. Shuffled-label detectors average 0.48–0.50 and never
+exceed chance. The calibrated triage model passes the Phase 4 gate for every error type: AUROC
+0.845 / 0.955 / 0.841 and calibration error 0.047 / 0.027 / 0.037 on 605 held-out votes.
 
 ### 5.2 Transfer to real errors (VariErr)
 
-Trained only on synthetic AmbiNoise-NLI errors, LabelTriage reached **0.60** AUROC on VariErr's
-development half, while untrained minority share reached **0.86**. A group ablation, restricted to
+Trained only on synthetic AmbiNoise-NLI errors (MNLI-only data at the time), LabelTriage reached
+**0.60** AUROC on VariErr's development half, while untrained minority share reached **0.86**. A group ablation, restricted to
 the development half, found two culprits:
 
 - a reliability feature that measured annotation design (annotators label 7–23 items in
@@ -110,8 +112,11 @@ the development half, found two culprits:
   lazy votes look implausible to an MNLI model; real errors do not.
 
 Removing both, chosen among three pre-declared variants, gives **0.76** (gap to minority share
-−0.10, 95% CI [−0.16, −0.04]). Vote-pattern features alone reach 0.89 on development data. That
-variant was not pre-declared, so it is reported only as a secondary analysis.
+−0.10, 95% CI [−0.16, −0.04]). Trained on the full ChaosNLI data, with nothing else changed, the
+same model reaches **0.83** (gap −0.02, 95% CI [−0.06, +0.01]). That is level within noise but
+not better, so H1's A9 clause is not met on development evidence. Vote-pattern features alone
+reached 0.89 on development data. That variant was not pre-declared, so it is reported only as a
+secondary analysis.
 
 **[GPU: sealed VariErr test-half results for the transfer model and the G1-only ablation.]**
 
@@ -132,7 +137,21 @@ for the pre-registered runs.
 
 ## 7. Limitations
 
-- Development numbers use an MNLI-only ChaosNLI mirror (1,099 items).
+- **Transfer to real errors is unresolved.** On VariErr's development half the transfer model
+  reaches 0.833 AUROC against 0.857 for untrained minority share. It is not better than counting
+  votes, and the pre-registered A9 clause is not met on that evidence (Section 5.2).
+- **Pre-split exposure of VariErr.** The first transfer check (Phase 4) reported one aggregate
+  AUROC (0.63) over all 500 VariErr items, before the 250/250 dev/test split existed (A13). No
+  design decision used a test-half number, but the test half is not perfectly unseen.
+- **Test-half votes feed unsupervised features.** Annotator reliability (G2), neighbourhood
+  consistency (G4) and the training-dynamics probe (G5) are computed over the whole VariErr vote
+  table, including the test half's votes, though never its error labels. The final run does the
+  same, so the test half is treated no differently, but it is not held out from feature
+  computation.
+- **Phase 3 gate miss.** For lazy errors, vote statistics alone reach 0.571 against the
+  pre-registered 0.60 (A14). The threshold was not changed.
+- Earlier development numbers used an MNLI-only ChaosNLI mirror (1,099 items). Full-data
+  numbers (2,613 items) replace them where re-run, and both are kept in `docs/results.md`.
 - AmbiNoise annotators are simulated; ChaosNLI has no annotator identities.
 - VariErr is NLI-only, with 4 annotators and 250 test items (CIs near ±0.07).
 - The Phase 4 transfer check reported one aggregate number over all of VariErr before the
