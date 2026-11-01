@@ -183,3 +183,10 @@ def test_baseline_methods_train_end_to_end(tmp_path, monkeypatch, method):
     )
     result = run.execute(cfg, tmp_path)
     assert result["n_train"] == 20
+
+
+def test_coteaching_method_runs(tmp_path, monkeypatch):
+    monkeypatch.setattr(bundles, "load", lambda name, data_dir: _fake_pool_bundle())
+    cfg = _cfg("data=ambinoise_10h", "data.noise.num_annotators=20", "method=coteaching")
+    result = run.execute(cfg, tmp_path)
+    assert result["n_train"] == 20

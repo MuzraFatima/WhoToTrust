@@ -12,7 +12,11 @@ def weighted_soft_ce(
     With one-hot targets and unit weights this is ordinary cross-entropy. A weight of zero removes
     an item from the gradient; down-weighted items count proportionally less.
     """
-    per_item = -(targets * F.log_softmax(logits, dim=1)).sum(dim=1)
+    per_item = soft_ce_per_item(logits, targets)
     if weights is not None:
         per_item = per_item * weights
     return per_item.mean()
+
+
+def soft_ce_per_item(logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+    return -(targets * F.log_softmax(logits, dim=1)).sum(dim=1)

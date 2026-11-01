@@ -64,8 +64,13 @@ def fit(
     seed: int,
     device: torch.device | None = None,
     on_epoch=None,
+    coteach: tuple[float, int] | None = None,
 ) -> tuple[torch.nn.Module, list[float]]:
-    """Train a ResNet-18 on ``images`` aligned row by row with ``ts``."""
+    """Train a ResNet-18 on ``images`` aligned row by row with ``ts``.
+
+    ``coteach=(tau, ramp_epochs)`` trains a second, differently initialised ResNet-18 alongside
+    it with Co-teaching, and returns the first network.
+    """
     if len(images) != len(ts):
         raise ValueError("images and targets must be aligned")
     device = device or loop.device_default()
@@ -81,8 +86,16 @@ def fit(
             x = augment(x, gen)
         return x, targets[idx], weights[idx]
 
+    peer, forget = None, None
+    if coteach is not None:
+        torch.manual_seed(seed + 7919)
+        peer = ResNet18(num_classes, cfg.width)
+        forget = loop.coteaching_schedule(*coteach)
+
     rng = np.random.default_rng(seed)
-    history = loop.fit(model, len(images), get_batch, _forward, cfg.loop, rng, device, on_epoch)
+    history = loop.fit(
+        model, len(images), get_batch, _forward, cfg.loop, rng, device, on_epoch, peer, forget
+    )
     return model, history
 
 

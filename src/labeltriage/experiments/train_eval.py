@@ -122,6 +122,21 @@ def make_targets(
     return ts.align(bundle.train_item_ids), extra
 
 
+def coteaching_setting(cfg: DictConfig, bundle: bundles.Bundle) -> tuple[float, int] | None:
+    """(tau, ramp epochs) for Co-teaching, or None for ordinary training.
+
+    Tau, the share of each batch to drop, is estimated from the votes as the share disagreeing
+    with their item's majority (capped at 0.5), since the true noise rate is unknown in practice.
+    """
+    if cfg.method.get("trainer") != "coteaching":
+        return None
+    votes = bundle.train_votes
+    majority = votes.groupby("item_id")["label"].agg(lambda s: s.value_counts().idxmax())
+    disagree = (votes["label"].to_numpy() != votes["item_id"].map(majority).to_numpy()).mean()
+    ramp = max(1, round(cfg.method.get("ramp_frac", 0.2) * cfg.data.train.epochs))
+    return float(min(0.5, disagree)), int(ramp)
+
+
 def _train_image(cfg, bundle, ts) -> tuple[Predictor, list[float], str]:
     from labeltriage.train import image, loop
 
@@ -139,7 +154,8 @@ def _train_image(cfg, bundle, ts) -> tuple[Predictor, list[float], str]:
     )
     device = loop.device_default()
     x = bundle.train_inputs[np.arange(len(bundle.train_inputs))]
-    model, history = image.fit(x, ts, bundle.num_classes, icfg, cfg.seed, device)
+    coteach = coteaching_setting(cfg, bundle)
+    model, history = image.fit(x, ts, bundle.num_classes, icfg, cfg.seed, device, coteach=coteach)
 
     def predict(inputs):
         return image.predict(model, inputs, icfg.eval_batch_size, device)
@@ -148,6 +164,7 @@ def _train_image(cfg, bundle, ts) -> tuple[Predictor, list[float], str]:
 
 
 def _train_text(cfg, bundle, ts) -> tuple[Predictor, list[float], str]:
+    import torch
     from transformers import AutoTokenizer
 
     from labeltriage.train import loop, models, text
@@ -170,7 +187,12 @@ def _train_text(cfg, bundle, ts) -> tuple[Predictor, list[float], str]:
     tok = AutoTokenizer.from_pretrained(tcfg.model_name)
     enc = text.tokenize(*bundle.train_inputs, tok, tcfg.max_length)
     model = models.text_classifier(tcfg.model_name, bundle.num_classes)
-    model, history = text.fit(model, enc, ts, tcfg, cfg.seed, device)
+    coteach = coteaching_setting(cfg, bundle)
+    peer = None
+    if coteach is not None:
+        torch.manual_seed(cfg.seed + 7919)
+        peer = models.text_classifier(tcfg.model_name, bundle.num_classes)
+    model, history = text.fit(model, enc, ts, tcfg, cfg.seed, device, peer=peer, coteach=coteach)
 
     def predict(inputs):
         return text.predict(
