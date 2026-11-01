@@ -189,3 +189,32 @@ def test_build_refuses_groups_without_cached_inputs():
     votes, _, _ = _benchmark(n_items=50)
     with pytest.raises(ValueError, match="embed"):
         fb.build(votes, 3, fb.FeatureInputs(), groups=("g4",))
+
+
+def test_features_task_caches_and_reports(tmp_path, monkeypatch):
+    from hydra import compose, initialize_config_module
+
+    from labeltriage import run
+    from labeltriage.data import bundles
+    from labeltriage.experiments import features as fx
+    from labeltriage.features import build as fb
+
+    votes, emb, plaus = _benchmark()
+    fake = bundles.Bundle("image", 3, None, np.array([]), votes, {}, votes=votes)
+    monkeypatch.setattr(fx, "load_bundle", lambda cfg: fake)
+    monkeypatch.setattr(fx, "feature_inputs", lambda d, b: fb.FeatureInputs(plaus, emb))
+    with initialize_config_module(config_module="labeltriage.conf", version_base="1.3"):
+        cfg = compose(
+            config_name="config",
+            overrides=[
+                "experiment=features",
+                "experiment.probe_epochs=3",
+                "data=ambinoise_10h",
+                "data.num_classes=3",
+                f"paths.cache_dir={tmp_path.as_posix()}/cache",
+            ],
+        )
+    result = run.execute(cfg, tmp_path / "run")
+    assert "auroc/g1" in result["metrics"] and "gate/leakage_pass" in result["metrics"]
+    cached = pd.read_parquet(result["feature_path"])
+    assert len(cached) == len(votes) and "is_error" in cached
