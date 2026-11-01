@@ -126,6 +126,11 @@ def test_analyze_script_ignores_non_final_runs(tmp_path):
                 },
             )
     out = tmp_path / "report.md"
-    assert mod.main([str(tmp_path), "--out", str(out)]) == 0
+    # The fake runs carry no provenance and this repo has no prereg-v1 tag: the guard refuses...
+    assert mod.main([str(tmp_path), "--out", str(out)]) == 3
+    assert not out.exists()
+    # ...and --draft analyses anyway, stamping the report as a draft.
+    assert mod.main([str(tmp_path), "--out", str(out), "--draft"]) == 0
     text = out.read_text()
+    assert text.startswith("# DRAFT results")
     assert "| H2 | **holds**" in text

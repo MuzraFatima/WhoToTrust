@@ -122,6 +122,10 @@ and the DINOv2 backbone). It writes only to `outputs_smoke/` and `cache_smoke/`,
 counts as a real run. Any FAIL is fixed before session 2.
 
 Nothing with `stage=final` (sessions S4–S6) may start before the `prereg-v1` tag exists.
+`scripts/analyze.py` enforces this. Every run records its code commit, whether the code had
+uncommitted changes, and a hash of the hypotheses file. Verdicts are only written if the tag
+exists and every final run came from clean code at or after it, under the tagged hypotheses.
+`--draft` gives a preview stamped DRAFT.
 
 ## Disagreement Explorer
 
