@@ -139,7 +139,7 @@ def test_frozen_coteaching_runs():
 
 
 @pytest.mark.torch
-def test_encode_computes_once_then_reads_the_cache(tmp_path, monkeypatch):
+def test_encode_computes_each_row_once(tmp_path, monkeypatch):
     pytest.importorskip("torch")
     from labeltriage.train import frozen
 
@@ -147,30 +147,31 @@ def test_encode_computes_once_then_reads_the_cache(tmp_path, monkeypatch):
 
     def fake_encoder(domain, model_name):
         def run(inputs):
-            calls.append(1)
-            return np.ones((len(inputs[0]), 4))
+            calls.append(len(inputs[0]))
+            return np.array([[len(p), len(h)] for p, h in zip(*inputs, strict=True)])
 
         return run
 
     monkeypatch.setattr(frozen, "_encoder", fake_encoder)
-    pairs = (["p1", "p2"], ["h1", "h2"])
+    pairs = (["p1", "p2", "p1"], ["h1", "h2", "h1"])
     a = frozen.encode("text", pairs, "org/model", tmp_path)
-    b = frozen.encode("text", pairs, "org/model", tmp_path)
-    assert a.shape == (2, 4) and (a == b).all() and len(calls) == 1
-    frozen.encode("text", (["p1", "p2"], ["h1", "other"]), "org/model", tmp_path)
-    assert len(calls) == 2
+    assert a.shape == (3, 2) and calls == [2]  # the repeated pair is encoded once
+    b = frozen.encode("text", (["p2"], ["h2"]), "org/model", tmp_path)
+    assert calls == [2] and (b[0] == a[1]).all()  # a subset is read from the cache
+    frozen.encode("text", (["p1", "longer"], ["h1", "h"]), "org/model", tmp_path)
+    assert calls == [2, 1]  # only the new pair is encoded
 
 
 @pytest.mark.torch
-def test_content_key_tracks_image_bytes():
+def test_row_keys_track_image_bytes():
     pytest.importorskip("torch")
     from labeltriage.train import frozen
 
     x = np.zeros((2, 4, 4, 3), dtype=np.uint8)
     y = x.copy()
     y[0, 0, 0, 0] = 1
-    assert frozen.content_key("image", x) == frozen.content_key("image", x.copy())
-    assert frozen.content_key("image", x) != frozen.content_key("image", y)
+    kx, ky = frozen.row_keys("image", x), frozen.row_keys("image", y)
+    assert kx[0] == kx[1] and kx[0] != ky[0] and kx[1] == ky[1]
 
 
 @pytest.mark.torch

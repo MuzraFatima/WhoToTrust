@@ -1,9 +1,10 @@
 """A small MLP head on frozen embeddings: the mini profile's trainer, fast enough for a laptop CPU.
 
-Inputs are encoded once by a frozen model (DINOv2 for images, a sentence encoder for NLI pairs)
-and cached under ``<cache_dir>/frozen/`` by a hash of their content, so every later run on the
-same inputs trains in seconds. Only the head learns; it goes through the shared loop, so soft
-targets, weights and Co-teaching behave as they do for the full backbones.
+Inputs are encoded by a frozen model (DINOv2 for images, a sentence encoder for NLI pairs) and
+cached row by row under ``<cache_dir>/frozen/`` by a hash of each row's content, so every image
+or pair is encoded once and every later run trains in seconds. Only the head learns; it goes
+through the shared loop, so soft targets, weights and Co-teaching behave as they do for the full
+backbones.
 """
 
 from __future__ import annotations
@@ -36,18 +37,23 @@ class MLPHead(nn.Module):
         return self.net(x)
 
 
-def content_key(domain: str, inputs: Any) -> str:
-    """A hash that changes whenever the inputs do: image bytes, or the text of every pair."""
-    h = hashlib.sha256(domain.encode())
+def row_keys(domain: str, inputs: Any) -> list[str]:
+    """One hash per input row: the image's bytes, or the premise / hypothesis text."""
     if domain == "image":
         arr = np.ascontiguousarray(inputs)
-        h.update(str(arr.shape).encode())
-        h.update(arr.tobytes())
-    else:
-        premises, hypotheses = inputs
-        for p, q in zip(premises, hypotheses, strict=True):
-            h.update(f"{p}\x1f{q}\x1e".encode())
-    return h.hexdigest()[:32]
+        return [hashlib.sha256(row.tobytes()).hexdigest()[:32] for row in arr]
+    premises, hypotheses = inputs
+    return [
+        hashlib.sha256(f"{p}{q}".encode()).hexdigest()[:32]
+        for p, q in zip(premises, hypotheses, strict=True)
+    ]
+
+
+def _rows(domain: str, inputs: Any, idx: list[int]) -> Any:
+    if domain == "image":
+        return np.ascontiguousarray(inputs)[idx]
+    premises, hypotheses = inputs
+    return [premises[i] for i in idx], [hypotheses[i] for i in idx]
 
 
 @functools.lru_cache(maxsize=4)
@@ -60,18 +66,35 @@ def _encoder(domain: str, model_name: str):
     return lambda inputs: run(list(zip(*inputs, strict=True)))
 
 
+def _load_store(directory: Path) -> dict[str, np.ndarray]:
+    store: dict[str, np.ndarray] = {}
+    for shard in sorted(directory.glob("shard-*.npz")):
+        with np.load(shard, allow_pickle=False) as z:
+            store.update(zip(z["keys"].tolist(), z["feats"], strict=True))
+    return store
+
+
 def encode(domain: str, inputs: Any, model_name: str, cache_dir: str | Path) -> np.ndarray:
-    """Frozen embeddings for ``inputs``, computed once and then read from the cache."""
-    slug = model_name.replace("/", "--")
-    path = Path(cache_dir) / "frozen" / slug / f"{content_key(domain, inputs)}.npy"
-    if path.exists():
-        return np.load(path, allow_pickle=False)
-    feats = np.asarray(_encoder(domain, model_name)(inputs), dtype=np.float32)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp.npy")
-    np.save(tmp, feats, allow_pickle=False)
-    tmp.replace(path)
-    return feats
+    """Frozen embeddings for ``inputs``. Each row is encoded once, ever: rows are cached by
+    content, so overlapping sets (cross-fitting folds, a subset of earlier inputs) cost nothing."""
+    directory = Path(cache_dir) / "frozen" / model_name.replace("/", "--")
+    keys = row_keys(domain, inputs)
+    store = _load_store(directory)
+    first: dict[str, int] = {}
+    for i, k in enumerate(keys):
+        if k not in store:
+            first.setdefault(k, i)
+    if first:
+        idx = list(first.values())
+        feats = np.asarray(_encoder(domain, model_name)(_rows(domain, inputs, idx)), np.float32)
+        new_keys = np.array(list(first), dtype="U32")
+        directory.mkdir(parents=True, exist_ok=True)
+        name = hashlib.sha256("".join(new_keys).encode()).hexdigest()[:16]
+        tmp = directory / f"tmp-{name}.npz"
+        np.savez(tmp, keys=new_keys, feats=feats)
+        tmp.replace(directory / f"shard-{name}.npz")
+        store.update(zip(new_keys.tolist(), feats, strict=True))
+    return np.stack([store[k] for k in keys]).astype(np.float32)
 
 
 def _forward(model, inputs):
