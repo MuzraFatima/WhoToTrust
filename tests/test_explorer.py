@@ -56,28 +56,6 @@ def test_vote_table_sorts_by_suspicion():
     assert "why" in vt
 
 
-def test_streamlit_app_renders_a_scored_run(tmp_path):
-    import pytest
-
-    pytest.importorskip("streamlit")
-    pytest.importorskip("plotly")
-    from streamlit.testing.v1 import AppTest
-
-    run_dir = tmp_path / "outputs" / "run"
-    run_dir.mkdir(parents=True)
-    _scored().to_parquet(run_dir / "scored_votes.parquet")
-
-    from pathlib import Path
-
-    app = Path(__file__).resolve().parents[1] / "app" / "explorer.py"
-    at = AppTest.from_file(str(app), default_timeout=60)
-    at.run()
-    at.sidebar.text_input[0].set_value(str(tmp_path / "outputs")).run()
-    assert not at.exception
-    assert at.metric[0].value == "2"
-    assert len(at.dataframe) == 1
-
-
 def test_misrouting_compares_with_oracle_routes():
     scored = _scored().assign(error_type=["none"] * 4 + ["spammer"] + ["none"] * 5)
     # Pretend LabelTriage sent item a (a clear item with one error) to the soft route.

@@ -1,6 +1,6 @@
 """Data behind the Disagreement Explorer: per-item summaries and plain-language reasons.
 
-Kept free of any UI code so it is testable; ``app/explorer.py`` draws it with Streamlit.
+Kept free of any UI code so it is testable; ``labeltriage.api`` serves it to the React app.
 """
 
 from __future__ import annotations

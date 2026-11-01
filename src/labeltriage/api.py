@@ -20,6 +20,7 @@ import io
 import json
 import os
 import re
+import threading
 import webbrowser
 from pathlib import Path
 from typing import Annotated, Any
@@ -28,7 +29,7 @@ import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from labeltriage import explorer
@@ -40,6 +41,14 @@ NLI_CLASSES = ("entailment", "neutral", "contradiction")
 BASES = {"10h": "cifar10h", "nli": "chaosnli"}
 DATA_NAME = re.compile(r"ambinoise_(10h|nli)_k(\d+)_r([0-9.]+)_(.+)$")
 PAGE_SIZES = (10, 25, 50, 100)
+NOT_BUILT = """<!doctype html><meta charset="utf-8"><title>LabelTriage</title>
+<body style="font:16px system-ui;max-width:42rem;margin:4rem auto;padding:0 1rem">
+<h1>The web app is not built yet</h1>
+<p>The API is running (see <a href="/api/docs">/api/docs</a>). To build the app, once:</p>
+<pre>cd web
+npm ci
+npm run build</pre>
+<p>Then reload this page.</p></body>"""
 WEB_DIST = Path(__file__).resolve().parents[2] / "web" / "dist"
 
 
@@ -172,10 +181,18 @@ def _base_info(data_dir: str, base: str) -> dict:
     return {"classes": classes, "items": items}
 
 
+def _cifar_present(data_dir: str) -> bool:
+    return (Path(data_dir) / "raw" / "cifar10" / "cifar-10-batches-py" / "test_batch").is_file()
+
+
 @functools.lru_cache(maxsize=1)
 def _cifar_test_images(data_dir: str) -> np.ndarray | None:
-    """CIFAR-10's 10,000 test images if they are already on disk. Never downloads anything."""
-    if not (Path(data_dir) / "raw" / "cifar10" / "cifar-10-batches-py" / "test_batch").is_file():
+    """CIFAR-10's 10,000 test images if they are already on disk. Never downloads anything.
+
+    Loading goes through torchvision, which takes a while to import, so the answer to "does this
+    item have a picture" uses ``_cifar_present`` and only a picture request pays for this.
+    """
+    if not _cifar_present(data_dir):
         return None
     try:
         from labeltriage.data import images
@@ -299,7 +316,7 @@ class _Static(StaticFiles):
 
     async def get_response(self, path, scope):
         resp = await super().get_response(path, scope)
-        if path.startswith("assets/") and resp.status_code == 200:
+        if path.replace("\\", "/").startswith("assets/") and resp.status_code == 200:
             resp.headers["Cache-Control"] = "public, max-age=31536000, immutable"
         return resp
 
@@ -379,7 +396,9 @@ def create_app(
         page_size: Annotated[int, Query(ge=1, le=100)] = 25,
     ):
         """A page of the run's items, most suspicious first, with the filters the app offers."""
-        view = runs.items(run_path(run))
+        path = run_path(run)
+        view = runs.items(path)
+        classes = _base_info(str(runs.data_dir), runs.describe(path)["dataset"] or "")["classes"]
         if route:
             view = view[view["route"].isin(route)]
         if only_errors and "true_errors" in view:
@@ -396,6 +415,7 @@ def create_app(
                 "page": page,
                 "page_size": page_size,
                 "pages": max(1, -(-total // page_size)),
+                "classes": classes,
                 "items": shown[[c for c in cols if c in shown]].to_dict("records"),
             }
         )
@@ -427,7 +447,7 @@ def create_app(
             if "premise" in meta:
                 text = {"premise": str(row["premise"]), "hypothesis": str(row["hypothesis"])}
             elif "image_index" in meta:
-                has_image = _cifar_test_images(str(runs.data_dir)) is not None
+                has_image = _cifar_present(str(runs.data_dir))
         return clean(
             {
                 "item_id": item,
@@ -470,6 +490,13 @@ def create_app(
 
     if web_dir and Path(web_dir).is_dir():
         app.mount("/", _Static(directory=str(web_dir), html=True), name="web")
+    else:
+
+        @app.get("/", include_in_schema=False)
+        def not_built():
+            return HTMLResponse(NOT_BUILT, status_code=503)
+
+    app.state.runs = runs
     return app
 
 
@@ -484,6 +511,11 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--open", action="store_true", help="open the app in the default browser")
     args = parser.parse_args(argv)
     app = create_app(args.root, args.data_dir)
+    data_dir = str(app.state.runs.data_dir)
+    if _cifar_present(data_dir):
+        # Importing torchvision and reading the images takes a while: do it now, in the
+        # background, so the first picture a visitor asks for is already waiting.
+        threading.Thread(target=_cifar_test_images, args=(data_dir,), daemon=True).start()
     if args.open:
         webbrowser.open(f"http://{args.host}:{args.port}")
     uvicorn.run(app, host=args.host, port=args.port, log_level="warning")

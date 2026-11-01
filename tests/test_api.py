@@ -130,6 +130,7 @@ def test_items_are_sorted_filtered_and_paginated(client):
 
     last = client.get("/api/items", params={"run": NLI, "page": 3, "page_size": 5}).json()
     assert len(last["items"]) == 2
+    assert last["classes"] == ["entailment", "neutral", "contradiction"]
 
 
 def test_item_detail_has_votes_reasons_class_names_and_text(client):
@@ -189,6 +190,28 @@ def test_clean_makes_nan_and_numpy_json_safe():
     )
     assert out == {"a": None, "b": 3, "c": [0.5, None], "d": True}
     json.dumps(out, allow_nan=False)
+
+
+def test_without_a_built_web_app_the_root_explains_how_to_build_it(tmp_path):
+    c = TestClient(api.create_app(tmp_path, tmp_path, web_dir=tmp_path / "missing"))
+    r = c.get("/")
+    assert r.status_code == 503 and "npm run build" in r.text
+    assert c.get("/api/health").status_code == 200
+
+
+def test_the_built_web_app_is_served_with_long_cache_for_hashed_assets(tmp_path):
+    web = tmp_path / "dist"
+    (web / "assets").mkdir(parents=True)
+    (web / "index.html").write_text("<title>app</title>")
+    (web / "assets" / "index-abc.js").write_text("console.log(1)")
+    c = TestClient(api.create_app(tmp_path, tmp_path, web_dir=web))
+    assert "<title>app</title>" in c.get("/").text
+    asset = c.get("/assets/index-abc.js")
+    assert "immutable" in asset.headers["cache-control"]
+    assert (
+        "cache-control" not in c.get("/").headers
+        or "immutable" not in c.get("/").headers["cache-control"]
+    )
 
 
 def test_a_relative_runs_folder_works_too(tmp_path, monkeypatch):
