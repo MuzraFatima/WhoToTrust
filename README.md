@@ -1,190 +1,157 @@
-# WhoToTrust — LabelTriage
+# LabelTriage
 
-**When Labels Disagree: learning to separate annotation error from genuine ambiguity, and training on each differently.**
+[![CI](https://github.com/MuzraFatima/WhoToTrust/actions/workflows/ci.yml/badge.svg)](https://github.com/MuzraFatima/WhoToTrust/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-When several annotators label the same item and disagree, existing pipelines either delete the
-minority votes (noisy-label learning) or keep all of them as a soft label (human label variation).
-LabelTriage decides *per annotation* whether a disagreement is a mistake or a genuine ambiguity,
-then routes each item to a hard, soft or down-weighted training target.
+**When labels disagree: is it a mistake, or a real difference of opinion?**
 
-The project has three parts:
+When several people label the same item and disagree, most pipelines either delete the minority
+votes (noisy-label learning) or keep every vote as a soft label (human label variation).
+LabelTriage decides, **vote by vote**, whether a disagreement is an error or genuine ambiguity,
+then trains on each differently. This repository holds the method, a benchmark for testing it,
+the experiments, and a web app for exploring every scored vote. It runs end to end on an
+ordinary laptop CPU.
 
-- **AmbiNoise** — a benchmark built from real many-annotator vote distributions (CIFAR-10H, ChaosNLI)
-  with controlled, labelled errors injected on top.
-- **LabelTriage** — a calibrated per-annotation triage model plus a three-route target builder.
-- **Harm analysis** — counterfactual retraining that measures which kinds of disagreement hurt
-  accuracy and which hurt calibration.
+![Overview of the web app](docs/screenshots/overview.png)
 
-The full research design lives in [`docs/`](docs/).
+## What is in the box
 
-## Reproduce a headline number
+| Part | What it is |
+|---|---|
+| **AmbiNoise** | A benchmark built from real many-annotator votes (CIFAR-10H images, ChaosNLI text) with labelled errors injected on top: spammers, swapped classes, lazy annotators, and plausible-looking wrong answers. |
+| **LabelTriage** | Scores each vote's chance of being an error from five kinds of evidence, then routes each item to a hard, soft or down-weighted training target. |
+| **Harm analysis** | Retrains with each kind of disagreement removed or kept, to see which one hurts accuracy and which hurts calibration. |
+| **Web app** | A React app over a small Python API: an overview, the results, and an explorer for every item and vote. |
 
-On any machine with Python 3.11+, from a fresh clone, on CPU (about 40 minutes):
+## Quick start
+
+You need Python 3.11+ and, for the web app, Node 20+.
 
 ```bash
-bash scripts/reproduce_headline.sh
+# 1. Install
+python -m venv .venv && source .venv/bin/activate      # Windows: .venv\Scripts\activate
+pip install -e ".[train,features,crowd,app,dev]"
+
+# 2. Get the data (CIFAR-10H, VariErr and CIFAR-10 download by themselves; ChaosNLI is manual)
+python -m labeltriage.data.prepare cifar10h varierr chaosnli --data-dir data
+
+# 3. Run the whole pipeline on the laptop-sized subsets (about 45 minutes the first time)
+python scripts/make_mini.py --seed-cache
+python scripts/run_mini.py
+
+# 4. Build and open the web app
+cd web && npm ci && npm run build && cd ..
+python -m labeltriage.api --open                         # http://127.0.0.1:8000
 ```
 
-It prints the VariErr dev-half transfer AUROC of the LabelTriage transfer model (expected
-**0.833** with the official ChaosNLI files, 0.756 with only the MNLI mirror) next to the
-untrained minority-share reference (expected **0.857**). All results so
-far, including the ones that went against the method, are in
-[`docs/results.md`](docs/results.md).
+ChaosNLI's download link blocks scripts. Get it from the
+[ChaosNLI repository](https://github.com/easonnie/ChaosNLI) in a browser and put
+`chaosNLI_snli.jsonl` and `chaosNLI_mnli_m.jsonl` in `data/raw/chaosnli/`.
+
+`run_mini.py` is resumable: if it stops, run it again and it picks up where it left off. Every
+later run is quick, because the models and features are cached.
+
+## The web app
+
+| | |
+|---|---|
+| ![Results](docs/screenshots/results-images.png) | ![Explorer](docs/screenshots/explorer-image.png) |
+| **Results.** How each training recipe does under each kind of error, how well errors are spotted, the transfer to real errors, and every gate the results miss. | **Explorer.** Every item as a dot. Click one to see its picture or text, each vote, the model's error score, and the plain-language reasons behind it. |
+
+Filter by dataset, error type, seed and route, search by item, and page through the list.
+It follows your system's light or dark setting
+([dark overview](docs/screenshots/overview-dark.png), [text explorer](docs/screenshots/explorer-text.png)).
+
+## Results
+
+These come from the laptop edition (below), on validation data, as the mean of 3 seeds. The
+oracle knows which votes are wrong, so it is the ceiling.
+
+| Data | Error type | Majority vote | Soft labels | **LabelTriage** | Oracle |
+|---|---|---|---|---|---|
+| Images | spammer | 0.943 | 0.903 | **0.955** | 0.957 |
+| Images | swap | 0.938 | 0.875 | **0.955** | 0.957 |
+| Images | lazy | 0.913 | 0.818 | **0.953** | 0.960 |
+| Images | plausible wrong | 0.935 | 0.907 | **0.950** | 0.957 |
+| Text | spammer | 0.682 | 0.682 | **0.689** | 0.684 |
+| Text | swap | 0.640 | 0.651 | **0.640** | 0.664 |
+| Text | lazy | 0.538 | 0.536 | **0.629** | 0.664 |
+| Text | plausible wrong | 0.669 | 0.680 | **0.678** | 0.684 |
+
+- **Images:** LabelTriage beats both simple rules for every error type and lands within 1 point
+  of the oracle.
+- **Text:** a clear gain for lazy errors (+9 points), level elsewhere. Seed spread is 1 to 2
+  points, so those gaps are within noise.
+- **Spotting errors:** validation AUROC is 0.96 to 0.99 on images and 0.76 to 0.95 on text.
+- **Real errors (VariErr):** trained on injected errors only, it scores AUROC 0.826 against
+  0.857 for simply counting minority votes. That is level, not better.
+- **Misses are shown, not hidden:** on text, vote statistics alone reach only 0.588 for lazy
+  errors (bar: 0.60), and the calibration gate is missed for lazy and plausible-wrong errors.
+
+Full tables and the numbers behind every claim: [`docs/results-mini.md`](docs/results-mini.md).
+
+## What this edition is, and is not
+
+- **It is** a complete, tested, reproducible project that runs on a laptop with only the data in
+  this folder. Every number above comes from real runs you can repeat, and the same two
+  commands reproduce them exactly.
+- **It uses** a fixed, stratified subset of each dataset (1,500 of the 10,000 CIFAR-10H images,
+  1,200 of 2,613 ChaosNLI items, all 500 VariErr items) and a small classifier on frozen
+  embeddings, instead of fine-tuning ResNet-18 and DeBERTa. Details: amendment A15 in
+  [`docs/blueprint-amendments.md`](docs/blueprint-amendments.md).
+- **It is not** the blueprint's full-scale, pre-registered study. That needs a GPU and was not
+  run, so these results are indicative, not confirmatory. Scores are on validation data only;
+  the sealed test splits were never read, and the analysis script refuses laptop-edition runs.
+  The instructions for the full study are kept in
+  [`docs/full-scale-study.md`](docs/full-scale-study.md).
+- **The text encoder** for the laptop edition was already trained on inference tasks, which
+  lifts every text number alike.
+
+## How it works
+
+1. **AmbiNoise.** Sample K real votes per item, credit them to simulated annotators, and
+   corrupt exactly the chosen share of votes. Every vote is now known to be an error or a
+   genuine opinion. ([`docs/ambinoise-card.md`](docs/ambinoise-card.md))
+2. **LabelTriage.** Five groups of evidence per vote: how the votes split (G1), how reliable the
+   annotator is (G2), whether a frozen model finds the label plausible (G3), what similar
+   items received (G4), and whether a probe model ever learned it (G5). A calibrated model turns
+   them into p(error), out of fold. Items then go to three routes: **clear** (hard label),
+   **ambiguous** (soft label) or **unreliable** (down-weighted).
+3. **Harm analysis.** Counterfactual retraining that removes errors, collapses ambiguity, both,
+   or neither.
 
 ## Repository layout
 
 ```
 src/labeltriage/
-  conf/         Hydra configs (data, method, experiment, sweep)
-  data/         dataset loaders and the shared annotation store
-  utils/        seeding, run bookkeeping, optional W&B tracking
-  run.py        single entry point for one run
-  grid.py       resumable sweep runner
-scripts/        grid launcher and Kaggle / Colab bootstrap
-tests/          pytest suite (runs on CPU, no downloads)
-docs/           blueprint, amendments and build plan
+  api.py           JSON API and server for the web app
+  conf/            Hydra configs: data, method, experiment, sweep, profile (full / mini)
+  data/            dataset loaders and the shared annotation store
+  ambinoise/       the benchmark: sampler, annotators, error processes
+  features/        the five evidence groups (G1 to G5)
+  triage/          the error model, calibration and the router
+  train/           trainers, including the frozen-embedding head
+  eval/            metrics, hypotheses, summaries, the analysis guard
+web/               React app (Vite), unit tests and end-to-end tests
+scripts/           run_mini.py, make_mini.py, analysis, release and Kaggle helpers
+tests/             pytest suite (CPU, no downloads)
+docs/              blueprint, amendments, results, performance, paper and defence drafts
 ```
 
-## Getting started
+## Testing
 
 ```bash
-python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -e ".[dev]"            # core + lint/test tools
-pip install -e ".[train,features,crowd]"   # add when you need models and baselines
-pre-commit install
-
-pytest                             # unit tests
-python -m labeltriage.run seed=1   # one smoke run, written under outputs/
-python scripts/run_grid.py src/labeltriage/conf/sweep/smoke.yaml --out outputs/grid
+pytest                                  # 219 Python tests
+cd web && npm test                      # unit tests (Vitest)
+cd web && npm run e2e                   # end to end in real Google Chrome
+cd web && npm run lint                  # ESLint; Python uses ruff
 ```
 
-Environment variables `LT_DATA_DIR`, `LT_CACHE_DIR` and `LT_OUTPUT_DIR` move data, caches and run
-outputs. On Kaggle or Colab, `scripts/kaggle_bootstrap.sh SPEC` clones the repo, installs it and
-runs a sweep. Re-running the same command after a timeout picks up where it stopped.
-
-Test splits are locked: any run that asks for one fails unless it sets `stage=final`, which is
-reserved for Phase 6, after the pre-registration tag.
-
-## Preparing data
-
-```bash
-python -m labeltriage.data.prepare cifar10h cifar10n varierr chaosnli --data-dir data
-```
-
-Everything is fetched and checksum-verified automatically except ChaosNLI, whose Dropbox link
-blocks scripts. Download it from the [ChaosNLI repository](https://github.com/easonnie/ChaosNLI)
-in a browser and put `chaosNLI_snli.jsonl` and `chaosNLI_mnli_m.jsonl` in `data/raw/chaosnli/`
-(the unextracted `chaosNLI_v1.0.zip` there works too). Both files are checksum-verified.
-`chaosNLI_alphanli.jsonl` is a different task and is not used. Without the official files, an
-MNLI-only mirror is used, with a warning.
-
-## Running locally on a laptop: the mini profile
-
-No GPU and no Kaggle needed. The mini profile (amendment A15) runs every stage of the project
-on an ordinary CPU, using only the data in this folder:
-
-- **Smaller data.** A fixed, stratified subset of each dataset: 1,500 of the 10,000 CIFAR-10H
-  images, 1,200 of the 2,613 ChaosNLI items, and all 500 VariErr items. Each item keeps its
-  original train / val / test split. The subsets are committed in `conf/splits/mini/`, and
-  `data/` is never changed.
-- **A lighter classifier.** A small MLP head on frozen embeddings replaces fine-tuning
-  ResNet-18 / DeBERTa: DINOv2-small for images, and for NLI a small encoder already trained
-  on NLI, `cross-encoder/nli-MiniLM2-L6-H768`. Embeddings are computed once and cached, so a
-  training run takes seconds.
-- **Its own folders.** `cache_mini/` and `outputs_mini/`, so nothing mixes with full runs.
-  `run_mini.py` also downloads pretrained models into the project's `.hf_cache/` (about
-  0.8 GB), unless `HF_HOME` points somewhere else.
-
-```bash
-pip install -e ".[train,features,crowd]"
-python -m labeltriage.data.prepare cifar10h varierr chaosnli --data-dir data   # if not done
-python scripts/make_mini.py --seed-cache   # subsets + reuse embeddings already in cache/
-python scripts/run_mini.py                 # all steps, then outputs_mini/report.md
-```
-
-`run_mini.py` is resumable: if it is interrupted, run it again and it continues. Any single
-run also works with `profile=mini`, for example
-`python -m labeltriage.run profile=mini experiment=reproduce data=chaosnli method=soft_labels`.
-
-Mini runs are **dev stage only** (val and clean_dev). Their test items belong to the real test
-split, which stays sealed until the `prereg-v1` tag. Mini numbers show that the pipeline works
-and which way the effects go. They are not the pre-registered results, and
-`scripts/analyze.py` refuses them. The latest local results are in
-[`docs/results-mini.md`](docs/results-mini.md).
-
-## Running on Kaggle: Tier 1 run order
-
-Tier 1 (about 23 GPU-hours) is the approved minimum that supports H1–H4. Its scope and cut
-order are in [`docs/prereg-v1.md`](docs/prereg-v1.md); Tier 2 waits.
-
-**One-time setup.** Create a Kaggle notebook with a T4 GPU and internet on. Upload
-`chaosNLI_snli.jsonl` and `chaosNLI_mnli_m.jsonl` as a Kaggle dataset named `chaosnli`. In each
-session, run:
-
-```bash
-!curl -sSLO https://raw.githubusercontent.com/MuzraFatima/WhoToTrust/main/scripts/kaggle_bootstrap.sh
-!CHAOSNLI_DIR=/kaggle/input/chaosnli RESUME_FROM=/kaggle/input/<previous-session-output>   bash kaggle_bootstrap.sh src/labeltriage/conf/sweep/<sweep>.yaml
-```
-
-Leave out `RESUME_FROM` in session 1. From session 2 on, attach the previous session's saved
-output as an input and point `RESUME_FROM` at it, so finished runs and caches carry over.
-
-**Every session ends the same way:** "Save Version" (so `outputs/` and `cache/` survive), then
-**turn the session off** (Run → Stop session) so it stops using GPU quota. Each sweep is
-resumable: if a session dies or prints `TIME BUDGET REACHED`, run the same command again in a
-new session with `RESUME_FROM`. Finished runs are skipped. Each session is sized to stay under
-8 hours (`MAX_HOURS=8`, inside Kaggle's 12-hour limit).
-
-| Session | Sweeps, in order | Est. GPU-h | Then |
-|---|---|---|---|
-| **S1** | `t1_s1_reproduce`, then the GPU smoke test (`SMOKE=1`, no sweep argument) | 0.3 + ~0.6 | **Stop. Report the measured `train_seconds` per run** (in `outputs/summary_runs.csv`) **and the smoke test's PASS/FAIL list** before continuing. |
-| S2 | `injection`, `t1_s2_embed`, `features_gate`, `triage_gate`, `t1_s2_transfer_dev` | ~1 + CPU | **Report `transfer/dev_auroc`** (the VariErr dev re-measure with plausible-wrong errors). |
-| S3 | `t1_s3_oracle_gate`, `t1_s3_pilot`, `tune_router` | 5.0 | Run `python scripts/preregister.py outputs/summary_runs.csv --tune outputs/summary_runs.csv`, fill every "to fill" in `docs/prereg-v1.md`, commit. **The owner reads it and tags `prereg-v1`.** |
-| S4 | `t1_s4_main_core` with `SHARD=1/2` | 4.8 | — |
-| S5 | `t1_s4_main_core` with `SHARD=2/2` | 4.8 | — |
-| S6 | `t1_s6_headline_seeds`, `t1_s6_strong_baselines`, `harm`, `transfer_final` | 6.9 | `python scripts/analyze.py outputs/grid`, `python scripts/misrouting.py outputs/grid` |
-
-**The 1.5× rule.** The plan assumes about 240 s per CIFAR-10H run and about 240 s per ChaosNLI
-run. If session 1 measures more than 1.5× that (360 s) for either, **stop and replan before
-session 2**. Cuts follow the order in `docs/prereg-v1.md`: step 9 first, then the pilot's
-second seed. The same rule applies to any later session that runs more than 1.5× over its
-estimate.
-
-The smoke test runs every GPU code path once, for one epoch (training, Co-teaching, the
-injection model, the embedding models, LabelTriage, CROWDLAB, Confident Learning, harm targets
-and the DINOv2 backbone). It writes only to `outputs_smoke/` and `cache_smoke/`, so nothing in it
-counts as a real run. Any FAIL is fixed before session 2.
-
-Nothing with `stage=final` (sessions S4–S6) may start before the `prereg-v1` tag exists.
-`scripts/analyze.py` enforces this. Every run records its code commit, whether the code had
-uncommitted changes, and a hash of the hypotheses file. Verdicts are only written if the tag
-exists and every final run came from clean code at or after it, under the tagged hypotheses.
-`--draft` gives a preview stamped DRAFT.
-
-## Disagreement Explorer
-
-```bash
-pip install -e ".[demo]"
-streamlit run app/explorer.py
-```
-
-It reads the `scored_votes.parquet` every LabelTriage run saves. Each item is plotted by vote
-entropy against its most suspicious vote, coloured by route. Clicking one shows the image, the
-votes, and plain-language reasons for each vote's score.
-
-## Status
-
-| Phase | Scope | State |
-|---|---|---|
-| 0 | Repo, CI, configs, run plumbing | done |
-| 1 | Data loaders, trainer, evaluation, baseline reproduction | code done; GPU numbers pending |
-| 2 | AmbiNoise benchmark | code done; injection model and oracle gate pending GPU |
-| 3 | Feature library | done on NLI; image side pending GPU |
-| 4 | Triage model and router | code done; first VariErr transfer is a miss (see docs/results.md) |
-| 5 | Baselines, pilot, pre-registration | code done; Tier 1 plan in docs/prereg-v1.md, tag pending |
-| 6 | Main experiments | grids and analysis ready; runs after prereg-v1 on GPU |
-| 7 | Harm analysis, ablations, explorer | code done; runs after prereg-v1 on GPU |
-| 8 | Paper, release, defence | release tooling, repro script and paper draft done; final numbers pending GPU |
+CI runs ruff, the Python tests on 3.11 and 3.12, and the web lint, unit tests and build.
+`npm run e2e` drives your installed Chrome against the real server and results; it checks every
+page, filter, click, the item pictures, compression and caching, and path-traversal refusal,
+and fails on any console or network error. Performance work and the Lighthouse audit are in
+[`docs/performance.md`](docs/performance.md).
 
 ## Credits
 
@@ -201,6 +168,9 @@ This project builds on open data and tools. Thank you to their authors:
 - **CIFAR-10**, **CIFAR-10.1** (Recht et al.) and **CIFAR-10-C** (Hendrycks and Dietterich).
 - **cleanlab** (Confident Learning, CROWDLAB) and the Dawid–Skene model (Dawid and Skene, 1979),
   reimplemented here in NumPy.
-- **Hugging Face Transformers**, **PyTorch**, **LightGBM**, **scikit-learn** and **Hydra**.
+- **Hugging Face Transformers**, **PyTorch**, **LightGBM**, **scikit-learn**, **Hydra**,
+  **FastAPI**, **React** and **Vite**.
 
-Code is MIT-licensed (see `LICENSE`). Each dataset keeps its own licence.
+## License
+
+Code is released under the [MIT License](LICENSE). Each dataset keeps its own licence.
