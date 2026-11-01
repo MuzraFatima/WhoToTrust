@@ -26,7 +26,8 @@ bash scripts/reproduce_headline.sh
 ```
 
 It prints the VariErr dev-half transfer AUROC of the LabelTriage transfer model (expected
-**0.756**) next to the untrained minority-share reference (expected **0.857**). All results so
+**0.833** with the official ChaosNLI files, 0.756 with only the MNLI mirror) next to the
+untrained minority-share reference (expected **0.857**). All results so
 far, including the ones that went against the method, are in
 [`docs/results.md`](docs/results.md).
 
