@@ -17,7 +17,7 @@ test.afterEach(async ({ page }) => {
 
 test("overview shows the headline findings from the real runs", async ({ page }) => {
   await page.goto("/");
-  await expect(page).toHaveTitle("LabelTriage");
+  await expect(page).toHaveTitle("WhoToTrust");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("mistake, or a real difference");
   await expect(page.getByText("120 runs")).toBeVisible();
   await expect(page.getByText("VariErr", { exact: false }).first()).toBeVisible();
