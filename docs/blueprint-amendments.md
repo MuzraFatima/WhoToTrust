@@ -196,6 +196,45 @@ since the true noise rate is not available in practice. The baseline table names
 "Co-teaching". If the compute buffer allows after Phase 6, DivideMix may be added for images as
 an extra row, but it is not part of any pre-registered comparison.
 
+## A13. VariErr is split into a dev half and a sealed test half
+
+**Gap.** The first transfer check (Phase 4) was a clear miss: LabelTriage scored 0.63 AUROC on
+VariErr's real errors, while the untrained minority-share rule scored 0.87. With all 500 items
+as the only real-error test, any attempt to improve transfer would be tuning on the test set,
+and keeping the method frozen would waste the one real-error signal the project has.
+
+**Amendment.** VariErr is split once, stratified by whether an item carries an official error,
+into **250 dev items** (60 with errors) and **250 test items** (59 with errors). The split is
+committed in `conf/splits/varierr.csv`. Design choices aimed at transfer may use only the dev
+half. The test half is scored only with `stage=final` after the `prereg-v1` tag, and that score
+is what H1's VariErr clauses are judged on. The cost is precision: with half the pairs, the
+test AUROC CI widens from about ±0.05 to about ±0.07.
+
+**Dev-half diagnosis and the one design change it led to.** Fitting the transfer model on one
+feature group at a time, or with one removed, scored on the 250 dev items only:
+
+| Variant | Dev AUROC |
+|---|---|
+| all groups (as in Phase 4) | 0.596 |
+| G1 alone / G5 alone / G4 alone / G3 alone / G2 alone | 0.891 / 0.760 / 0.634 / 0.594 / 0.540 |
+| untrained minority share | 0.857 |
+
+Two causes. (1) `g2_n_votes` ranged 7–23 in AmbiNoise and 367–404 in VariErr: it described the
+annotation design, not the vote. It was removed from G2 outright (feature cache bumped to v2).
+(2) G3 acts as a shortcut, because spammer, swap and lazy errors are implausible to the MNLI model
+and real errors are not. Three variants were declared before comparing them: (A) all groups minus
+`g2_n_votes`, 0.603; (B) A without G3, **0.756**; (C) B without G2, 0.708. The rule was "highest
+dev AUROC", so **B became the transfer model** (`experiment/transfer.yaml`). Iteration on the dev
+half stops here. G1 alone scored highest of all but was not a declared variant. It is reported
+on the test half as a pre-registered secondary ablation, not adopted.
+
+Variant B still trails minority share on dev, so on this evidence A9's clause is expected to
+fail. Plausible-wrong training errors (GPU) are the remaining planned lever.
+
+**Disclosure.** The Phase 4 check reported one aggregate number over all 500 items (0.63)
+before this split existed. No design decision uses a test-half number, and the paper reports
+this sequence as it happened.
+
 ## Budget impact
 
 A1 adds about 0.5 GPU-hours. A4 brings G5 well under its original line, and its four headline
