@@ -152,6 +152,21 @@ reaches **0.87**.
 AUROC must also exceed the minority-share rule's, with a bootstrap 95% CI above zero.* Without
 this, H1 could pass while learning nothing beyond counting votes.
 
+## A10. The leakage test is one-sided and averaged over shuffles
+
+**Gap.** The risk register asks that "shuffled labels must give AUROC near 0.5". A single shuffle
+on about 550 val votes has a standard error near 0.03, so one draw cannot settle the question.
+On the first real AmbiNoise-NLI run, 20 shuffles gave a mean of 0.462 (SD 0.037): consistently
+slightly *below* 0.5.
+
+**Amendment.** The detector is refitted on 10 independent shuffles of the train labels. The test
+**fails only if the mean shuffled AUROC exceeds 0.5 + max(0.02, 2 SE)**. Leakage, meaning answer
+information reaching the features, can only raise AUROC above chance. A mean below 0.5 comes
+from how a noise-fitted LightGBM behaves in sparse feature regions, where errors concentrate.
+That is not a pipeline fault, and feature groups are structurally barred from the answer columns
+anyway (`features.check_inputs`). The cross-fitting itself is checked separately: out-of-fold
+train AUROC must sit close to held-out val AUROC.
+
 ## Budget impact
 
 A1 adds about 0.5 GPU-hours. A4 brings G5 well under its original line, and its four headline

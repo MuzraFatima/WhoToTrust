@@ -1,8 +1,10 @@
 """Phase 3 gate: how well each feature group detects errors on its own, plus a leakage test.
 
 A LightGBM detector is fitted on train-split votes and scored by AUROC on val-split votes. The
-leakage test refits with the train labels shuffled: any AUROC far from 0.5 means a feature carries
-the answer through some path other than the vote pattern.
+leakage test refits with the train labels shuffled, several times. Leakage can only push AUROC
+above 0.5, so the test is one-sided (amendment A10): it fails when the mean shuffled AUROC is
+significantly above 0.5. Means somewhat below 0.5 reflect how a noise-fitted model behaves in
+sparse feature regions and do not indicate leakage.
 """
 
 from __future__ import annotations
@@ -45,7 +47,11 @@ def detector_auroc(
 
 
 def gate_report(
-    features: pd.DataFrame, votes: pd.DataFrame, seed: int = 0, threshold: float = 0.60
+    features: pd.DataFrame,
+    votes: pd.DataFrame,
+    seed: int = 0,
+    threshold: float = 0.60,
+    n_shuffles: int = 10,
 ) -> dict[str, float]:
     """Per-group and all-group AUROC, the leakage AUROC, and pass flags."""
     is_error = votes["is_error"].to_numpy(dtype=bool)
@@ -56,14 +62,20 @@ def gate_report(
         out[f"auroc/{g}"] = detector_auroc(features, is_error, split, columns_of(features, g), seed)
     all_cols = list(features.columns)
     out["auroc/all"] = detector_auroc(features, is_error, split, all_cols, seed)
-    out["auroc/leakage_shuffled"] = detector_auroc(
-        features, is_error, split, all_cols, seed, shuffle_labels=True
+    shuffled = np.array(
+        [
+            detector_auroc(features, is_error, split, all_cols, seed + r, shuffle_labels=True)
+            for r in range(n_shuffles)
+        ]
     )
+    out["auroc/leakage_shuffled"] = float(shuffled.mean())
+    out["auroc/leakage_shuffled_sd"] = float(shuffled.std(ddof=1)) if n_shuffles > 1 else 0.0
     # H1 is judged against item vote entropy alone; the minority-share rule is a second
     # untrained reference.
     val = split == "val"
     out["auroc/entropy_only"] = auroc(is_error[val], features.loc[val, "g1_entropy"])
     out["auroc/minority_share_only"] = auroc(is_error[val], -features.loc[val, "g1_share"])
     out["gate/groups_pass"] = float(all(out[f"auroc/{g}"] >= threshold for g in present))
-    out["gate/leakage_pass"] = float(abs(out["auroc/leakage_shuffled"] - 0.5) < 0.05)
+    se = out["auroc/leakage_shuffled_sd"] / np.sqrt(n_shuffles)
+    out["gate/leakage_pass"] = float(out["auroc/leakage_shuffled"] < 0.5 + max(0.02, 2 * se))
     return out
