@@ -15,9 +15,14 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 import time
 from pathlib import Path
+
+# Pretrained models download into the project folder too (.hf_cache/), unless HF_HOME is set.
+# Set before anything imports huggingface_hub, which reads it once.
+os.environ.setdefault("HF_HOME", str(Path(__file__).resolve().parents[1] / ".hf_cache"))
 
 import pandas as pd
 from omegaconf import OmegaConf
