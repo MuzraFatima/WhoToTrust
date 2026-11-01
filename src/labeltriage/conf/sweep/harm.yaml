@@ -1,0 +1,7 @@
+# H3: 4 counterfactual datasets x 4 settings x 3 seeds = 48 runs (~3 T4-hours).
+name: harm
+fixed: [experiment=harm, stage=final, data=ambinoise_10h, data.noise.k=5, data.noise.rate=0.2]
+axes:
+  data.noise.error_type: [spammer, swap, lazy, plausible_wrong]
+  method: [neither, errors_removed, ambiguity_collapsed, both]
+  seed: [0, 1, 2]

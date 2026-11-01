@@ -212,3 +212,10 @@ def test_labeltriage_on_real_noise_trains_triage_on_ambinoise(tmp_path, monkeypa
     m = result["metrics"]
     assert 0.0 <= m["triage/mean_p_error"] <= 1.0
     assert "triage/val_auroc" not in m
+
+
+@pytest.mark.parametrize("method", ["neither", "errors_removed", "ambiguity_collapsed", "both"])
+def test_harm_counterfactuals_train(tmp_path, monkeypatch, method):
+    monkeypatch.setattr(bundles, "load", lambda name, data_dir: _fake_pool_bundle())
+    cfg = _cfg("data=ambinoise_10h", "data.noise.num_annotators=20", f"method={method}")
+    assert run.execute(cfg, tmp_path)["n_train"] == 20

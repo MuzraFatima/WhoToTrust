@@ -119,6 +119,10 @@ def make_targets(
         ts = targets.route(votes, k, e, nu=cfg.method.nu, h0=cfg.method.h0)
     elif kind == "triage":
         ts, extra = _triage_targets(cfg, bundle)
+    elif kind == "harm":
+        from labeltriage.harm import harm_targets
+
+        ts = harm_targets(votes, k, cfg.method.counterfactual)
     elif kind in BASELINES:
         ts = BASELINES[kind](cfg, votes, k, rng)
     else:
