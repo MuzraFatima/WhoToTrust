@@ -23,8 +23,9 @@ def feature_inputs(cache_dir: str | Path, base: str) -> fb.FeatureInputs:
     )
 
 
-# Bumped whenever a feature group's columns change, so stale cached tables are never reused.
-FEATURE_VERSION = 2
+# Bumped whenever cached tables could be stale: v2 dropped g2_n_votes; v3 guarantees every cached
+# table holds all five groups (v2 tables built by the transfer task could lack G3).
+FEATURE_VERSION = 3
 
 
 def feature_cache_path(cfg: DictConfig) -> Path:
@@ -33,7 +34,11 @@ def feature_cache_path(cfg: DictConfig) -> Path:
 
 
 def build_or_load(cfg: DictConfig, votes: pd.DataFrame) -> pd.DataFrame:
-    """Votes with their feature columns attached, cached per (dataset draw, seed)."""
+    """Votes with all five feature groups attached, cached per (dataset draw, seed).
+
+    The cache always holds every group; callers pick columns afterwards. A cache that depended
+    on which groups the first caller asked for would silently serve incomplete tables later.
+    """
     path = feature_cache_path(cfg)
     if path.exists():
         return pd.read_parquet(path)
@@ -42,7 +47,7 @@ def build_or_load(cfg: DictConfig, votes: pd.DataFrame) -> pd.DataFrame:
         votes,
         cfg.data.num_classes,
         feature_inputs(cfg.paths.cache_dir, base),
-        groups=tuple(cfg.experiment.get("groups", fb.GROUPS)),
+        groups=fb.GROUPS,
         seed=cfg.seed,
         probe_epochs=cfg.experiment.get("probe_epochs", 15),
     )
@@ -60,7 +65,8 @@ def feature_columns(table: pd.DataFrame) -> list[str]:
 def features(cfg: DictConfig) -> dict[str, Any]:
     bundle = load_bundle(cfg)
     table = build_or_load(cfg, bundle.votes)
-    cols = feature_columns(table)
+    groups = tuple(cfg.experiment.get("groups", fb.GROUPS))
+    cols = [c for c in feature_columns(table) if c.split("_")[0] in groups]
     return {
         "metrics": gate_report(table[cols], table, seed=cfg.seed),
         "n_votes": len(table),

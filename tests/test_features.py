@@ -218,3 +218,23 @@ def test_features_task_caches_and_reports(tmp_path, monkeypatch):
     assert "auroc/g1" in result["metrics"] and "gate/leakage_pass" in result["metrics"]
     cached = pd.read_parquet(result["feature_path"])
     assert len(cached) == len(votes) and "is_error" in cached
+
+
+def test_feature_cache_always_holds_every_group(tmp_path, monkeypatch):
+    from omegaconf import OmegaConf
+
+    from labeltriage.experiments import features as fx
+    from labeltriage.features import build as fb
+
+    votes, emb, plaus = _benchmark(n_items=120)
+    monkeypatch.setattr(fx, "feature_inputs", lambda d, b: fb.FeatureInputs(plaus, emb))
+    cfg = OmegaConf.create(
+        {
+            "paths": {"cache_dir": str(tmp_path)},
+            "data": {"name": "d", "base": "b", "num_classes": 3},
+            "experiment": {"groups": ["g1"], "probe_epochs": 2},  # a caller wanting only G1
+            "seed": 0,
+        }
+    )
+    table = fx.build_or_load(cfg, votes)
+    assert {c.split("_")[0] for c in fx.feature_columns(table)} == set(fb.GROUPS)
