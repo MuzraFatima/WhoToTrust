@@ -1,0 +1,8 @@
+# Phase 2 gate (amendment A5): oracle within 1.0 clean-accuracy point of the uncorrupted votes,
+# at K = 5 and 20% error, for every error type, 3 seeds.
+name: oracle_gate
+fixed: [experiment=ambinoise_gate, data=ambinoise_10h, data.noise.k=5, data.noise.rate=0.2]
+axes:
+  data.noise.error_type: [spammer, swap, lazy, plausible_wrong]
+  method: [clean_votes, oracle, majority_vote, soft_labels]
+  seed: [0, 1, 2]

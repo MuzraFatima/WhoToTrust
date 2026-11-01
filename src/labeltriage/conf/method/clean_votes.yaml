@@ -1,0 +1,3 @@
+# Soft labels on the sampled votes before corruption: the ceiling the oracle gate compares to.
+name: clean_votes
+target: clean
