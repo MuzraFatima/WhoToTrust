@@ -284,9 +284,14 @@ laptop (2-core CPU, 8 GB RAM, no GPU) with local data only. `profile=mini` adds 
   500 val / 1,000 test. VariErr is kept whole. The draw is deterministic (seed 20261101) and
   committed under `conf/splits/mini/`.
 - **Classifier.** An MLP head (one hidden layer of 256, input LayerNorm) is trained on frozen
-  DINOv2-small or MiniLM embeddings, cached once per input set. It replaces ResNet-18 trained
-  from scratch and fine-tuned DeBERTa-v3-base. Targets, weights, routing and Co-teaching go
-  through the same training loop as before.
+  embeddings, cached once per item. Images use DINOv2-small. NLI uses the mean-pooled encoder
+  states of `cross-encoder/nli-MiniLM2-L6-H768`, which was trained on SNLI and MNLI. The
+  first choice, the general sentence encoder all-MiniLM-L6-v2, left the NLI head near chance
+  (val accuracy 0.45–0.49), so it was replaced. ChaosNLI items come from the SNLI and MNLI
+  dev sets, not their training sets. Still, mini NLI accuracy mostly reflects that encoder's
+  own NLI training. The classifier replaces ResNet-18 trained from scratch and fine-tuned
+  DeBERTa-v3-base. Targets, weights, routing and Co-teaching go through the same training
+  loop as before.
 - **Evaluation.** CIFAR-10-C is skipped. Mini sweeps are dev stage only.
 
 **What did not change.** The full profile is the default and is identical to before. No

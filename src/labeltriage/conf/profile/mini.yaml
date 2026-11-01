@@ -10,7 +10,7 @@ data:
     backbone: frozen_head
     frozen_models:
       image: facebook/dinov2-small
-      text: sentence-transformers/all-MiniLM-L6-v2
+      text: cross-encoder/nli-MiniLM2-L6-H768
     hidden: 256
     epochs: 40
     batch_size: 64

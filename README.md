@@ -87,10 +87,13 @@ on an ordinary CPU, using only the data in this folder:
   images, 1,200 of the 2,613 ChaosNLI items, and all 500 VariErr items. Each item keeps its
   original train / val / test split. The subsets are committed in `conf/splits/mini/`, and
   `data/` is never changed.
-- **A lighter classifier.** A small MLP head on frozen embeddings (DINOv2-small for images,
-  MiniLM for NLI) replaces fine-tuning ResNet-18 / DeBERTa. Embeddings are computed once and
-  cached, so a training run takes seconds.
+- **A lighter classifier.** A small MLP head on frozen embeddings replaces fine-tuning
+  ResNet-18 / DeBERTa: DINOv2-small for images, and for NLI a small encoder already trained
+  on NLI, `cross-encoder/nli-MiniLM2-L6-H768`. Embeddings are computed once and cached, so a
+  training run takes seconds.
 - **Its own folders.** `cache_mini/` and `outputs_mini/`, so nothing mixes with full runs.
+  `run_mini.py` also downloads pretrained models into the project's `.hf_cache/` (about
+  0.8 GB), unless `HF_HOME` points somewhere else.
 
 ```bash
 pip install -e ".[train,features,crowd]"

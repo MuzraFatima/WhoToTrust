@@ -22,8 +22,9 @@ refuses mini runs.
 | VariErr transfer (dev half) | 1 | 0.6 |
 | **Total** | **119** | **about 31** |
 
-Add model downloads the first time (about 0.8 GB). Once embeddings are cached, a single training
-run takes 2–3 seconds.
+Times are from the first full run. Switching the NLI encoder (below) and rerunning the NLI steps
+took another 8 minutes. Add model downloads the first time (about 0.8 GB, into `.hf_cache/`).
+Once embeddings are cached, a single training run takes 2–3 seconds.
 
 ## What the mini run shows
 
@@ -33,17 +34,26 @@ run takes 2–3 seconds.
   1 point of the oracle that knows which votes are wrong. Example, lazy errors: 0.953 vs 0.913
   (majority) and 0.818 (soft); oracle 0.960. One exception on clean_dev: with spammer errors,
   majority vote is slightly ahead (0.948 vs 0.940).
+- **NLI (ChaosNLI): a gain for lazy errors, level otherwise.** Against the better global rule,
+  LabelTriage gains 9.1 points for lazy errors (0.629 vs 0.538) and 0.7 for spammer errors. It
+  is 0.2 points behind for plausible-wrong and 1.1 behind for swap; with seed spreads of 1–2
+  points, those three are level. Its KL to the human votes is the lowest of the three methods
+  for every error type.
 - **Error detection works.** Calibrated triage reaches val AUROC 0.96–0.99 on images and
-  0.79–0.95 on NLI. The shuffled-label leakage check stays at about 0.5 throughout.
+  0.76–0.95 on NLI. The shuffled-label leakage check stays at about 0.5 throughout. On NLI the
+  Phase 4 gate misses for lazy errors (calibration error 0.072) and for plausible-wrong errors
+  (AUROC 0.758).
 - **The known lazy-error weakness reappears.** On NLI, G1 (vote statistics) alone reaches 0.588
   for lazy errors, below the 0.60 bar. This matches the full-data miss (0.571, A14).
-- **The NLI classifier is the weak link.** A head on frozen MiniLM sentence embeddings reaches
-  only about 0.40–0.49 val accuracy on 3-class ChaosNLI, because those embeddings were not
-  trained for inference. The NLI training comparison is therefore mostly noise; it needs the
-  fine-tuned DeBERTa of the full profile. NLI error *detection* is unaffected, because it uses
-  the votes and the separate MNLI model.
-- **VariErr transfer is level with vote counting, as on the full data.** AUROC 0.835 against
-  0.857 for minority share, gain CI [−0.060, +0.012], against 0.833 on the full data.
+- **VariErr transfer is level with vote counting, as on the full data.** AUROC 0.826 against
+  0.857 for minority share, gain CI [−0.073, +0.009], against 0.833 on the full data.
+
+**The NLI encoder was changed once, and the first result is kept here.** The first run used a
+general sentence encoder (all-MiniLM-L6-v2). Its NLI head reached only 0.45–0.49 val accuracy,
+so the NLI training comparison was noise. It was replaced with `cross-encoder/nli-MiniLM2-L6-H768`,
+which was trained on SNLI and MNLI, and every NLI step that depends on the classifier was
+rerun. Val accuracy rose to 0.69–0.71. Because that encoder already knows NLI, mini NLI accuracy
+mostly reflects its training, not this project's (A15). The image results are unchanged.
 
 ## Full tables
 
@@ -51,8 +61,8 @@ run takes 2–3 seconds.
 
 | data     | method        |   val/acc |   val/kl |   clean_dev/acc |   train_seconds |
 |:---------|:--------------|----------:|---------:|----------------:|----------------:|
-| chaosnli | majority_vote |     0.453 |    1.653 |         nan     |         208.066 |
-| chaosnli | soft_labels   |     0.493 |    0.672 |         nan     |           2.032 |
+| chaosnli | majority_vote |     0.693 |    0.320 |         nan     |         161.496 |
+| chaosnli | soft_labels   |     0.707 |    0.204 |         nan     |           2.443 |
 | cifar10h | majority_vote |     0.960 |    0.284 |           0.960 |         314.446 |
 | cifar10h | soft_labels   |     0.960 |    0.141 |           0.946 |           2.968 |
 
@@ -60,7 +70,7 @@ run takes 2–3 seconds.
 
 | data     |   heldout_acc_vs_majority |
 |:---------|--------------------------:|
-| chaosnli |                     0.432 |
+| chaosnli |                     0.720 |
 | cifar10h |                     0.958 |
 
 ## Error detection per feature group (AUROC)
@@ -72,7 +82,7 @@ run takes 2–3 seconds.
 | ambinoise_10h_k5_r0.2_spammer         |      0.994 |      0.722 |      0.997 |      0.996 |      0.998 |       0.998 |                       0.991 |                    0.466 |
 | ambinoise_10h_k5_r0.2_swap            |      0.958 |      0.725 |      0.959 |      0.989 |      0.984 |       0.988 |                       0.952 |                    0.488 |
 | ambinoise_nli_k5_r0.2_lazy            |      0.588 |      0.763 |      0.712 |      0.778 |      0.740 |       0.867 |                       0.575 |                    0.498 |
-| ambinoise_nli_k5_r0.2_plausible_wrong |      0.725 |      0.701 |      0.704 |      0.665 |      0.647 |       0.811 |                       0.721 |                    0.477 |
+| ambinoise_nli_k5_r0.2_plausible_wrong |      0.692 |      0.683 |      0.658 |      0.628 |      0.636 |       0.739 |                       0.689 |                    0.498 |
 | ambinoise_nli_k5_r0.2_spammer         |      0.779 |      0.725 |      0.805 |      0.756 |      0.745 |       0.868 |                       0.769 |                    0.474 |
 | ambinoise_nli_k5_r0.2_swap            |      0.736 |      0.820 |      0.901 |      0.807 |      0.724 |       0.940 |                       0.727 |                    0.474 |
 
@@ -85,7 +95,7 @@ run takes 2–3 seconds.
 | ambinoise_10h_k5_r0.2_spammer         |              0.964 |                            0.991 |                          0.023 |             1.000 |                   1.000 |
 | ambinoise_10h_k5_r0.2_swap            |              0.972 |                            0.956 |                          0.025 |             1.000 |                   1.000 |
 | ambinoise_nli_k5_r0.2_lazy            |              0.834 |                            0.607 |                          0.072 |             1.000 |                   0.000 |
-| ambinoise_nli_k5_r0.2_plausible_wrong |              0.787 |                            0.692 |                          0.061 |             0.000 |                   0.000 |
+| ambinoise_nli_k5_r0.2_plausible_wrong |              0.758 |                            0.682 |                          0.055 |             0.000 |                   1.000 |
 | ambinoise_nli_k5_r0.2_spammer         |              0.858 |                            0.756 |                          0.038 |             1.000 |                   1.000 |
 | ambinoise_nli_k5_r0.2_swap            |              0.953 |                            0.767 |                          0.035 |             1.000 |                   1.000 |
 
@@ -109,25 +119,25 @@ run takes 2–3 seconds.
 | ambinoise_10h_k5_r0.2_swap            | majority_vote |         3 |          0.938 |         0.003 |         0.309 |                0.915 |
 | ambinoise_10h_k5_r0.2_swap            | oracle        |         3 |          0.957 |         0.006 |         0.247 |                0.945 |
 | ambinoise_10h_k5_r0.2_swap            | soft_labels   |         3 |          0.875 |         0.030 |         0.378 |                0.886 |
-| ambinoise_nli_k5_r0.2_lazy            | labeltriage   |         3 |          0.476 |         0.021 |         1.044 |              nan     |
-| ambinoise_nli_k5_r0.2_lazy            | majority_vote |         3 |          0.471 |         0.025 |         2.387 |              nan     |
-| ambinoise_nli_k5_r0.2_lazy            | oracle        |         3 |          0.471 |         0.033 |         1.101 |              nan     |
-| ambinoise_nli_k5_r0.2_lazy            | soft_labels   |         3 |          0.478 |         0.032 |         1.102 |              nan     |
-| ambinoise_nli_k5_r0.2_plausible_wrong | labeltriage   |         3 |          0.424 |         0.023 |         0.824 |              nan     |
-| ambinoise_nli_k5_r0.2_plausible_wrong | majority_vote |         3 |          0.447 |         0.012 |         1.561 |              nan     |
-| ambinoise_nli_k5_r0.2_plausible_wrong | oracle        |         3 |          0.431 |         0.056 |         1.041 |              nan     |
-| ambinoise_nli_k5_r0.2_plausible_wrong | soft_labels   |         3 |          0.444 |         0.030 |         0.703 |              nan     |
-| ambinoise_nli_k5_r0.2_spammer         | labeltriage   |         3 |          0.404 |         0.031 |         0.790 |              nan     |
-| ambinoise_nli_k5_r0.2_spammer         | majority_vote |         3 |          0.433 |         0.050 |         1.600 |              nan     |
-| ambinoise_nli_k5_r0.2_spammer         | oracle        |         3 |          0.431 |         0.056 |         1.041 |              nan     |
-| ambinoise_nli_k5_r0.2_spammer         | soft_labels   |         3 |          0.391 |         0.034 |         0.670 |              nan     |
-| ambinoise_nli_k5_r0.2_swap            | labeltriage   |         3 |          0.456 |         0.038 |         0.849 |              nan     |
-| ambinoise_nli_k5_r0.2_swap            | majority_vote |         3 |          0.440 |         0.000 |         1.584 |              nan     |
-| ambinoise_nli_k5_r0.2_swap            | oracle        |         3 |          0.471 |         0.033 |         1.101 |              nan     |
-| ambinoise_nli_k5_r0.2_swap            | soft_labels   |         3 |          0.407 |         0.035 |         0.721 |              nan     |
+| ambinoise_nli_k5_r0.2_lazy            | labeltriage   |         3 |          0.629 |         0.019 |         0.258 |              nan     |
+| ambinoise_nli_k5_r0.2_lazy            | majority_vote |         3 |          0.538 |         0.019 |         0.502 |              nan     |
+| ambinoise_nli_k5_r0.2_lazy            | oracle        |         3 |          0.664 |         0.004 |         0.239 |              nan     |
+| ambinoise_nli_k5_r0.2_lazy            | soft_labels   |         3 |          0.536 |         0.010 |         0.321 |              nan     |
+| ambinoise_nli_k5_r0.2_plausible_wrong | labeltriage   |         3 |          0.678 |         0.014 |         0.221 |              nan     |
+| ambinoise_nli_k5_r0.2_plausible_wrong | majority_vote |         3 |          0.669 |         0.015 |         0.247 |              nan     |
+| ambinoise_nli_k5_r0.2_plausible_wrong | oracle        |         3 |          0.684 |         0.004 |         0.218 |              nan     |
+| ambinoise_nli_k5_r0.2_plausible_wrong | soft_labels   |         3 |          0.680 |         0.018 |         0.225 |              nan     |
+| ambinoise_nli_k5_r0.2_spammer         | labeltriage   |         3 |          0.689 |         0.008 |         0.212 |              nan     |
+| ambinoise_nli_k5_r0.2_spammer         | majority_vote |         3 |          0.682 |         0.010 |         0.220 |              nan     |
+| ambinoise_nli_k5_r0.2_spammer         | oracle        |         3 |          0.684 |         0.004 |         0.218 |              nan     |
+| ambinoise_nli_k5_r0.2_spammer         | soft_labels   |         3 |          0.682 |         0.014 |         0.244 |              nan     |
+| ambinoise_nli_k5_r0.2_swap            | labeltriage   |         3 |          0.640 |         0.007 |         0.236 |              nan     |
+| ambinoise_nli_k5_r0.2_swap            | majority_vote |         3 |          0.640 |         0.018 |         0.313 |              nan     |
+| ambinoise_nli_k5_r0.2_swap            | oracle        |         3 |          0.664 |         0.004 |         0.239 |              nan     |
+| ambinoise_nli_k5_r0.2_swap            | soft_labels   |         3 |          0.651 |         0.008 |         0.302 |              nan     |
 
 ## Transfer to VariErr's real errors (dev half)
 
 |   transfer/dev_auroc |   transfer/dev_minority_share_only |   transfer/dev_gain_over_minority_lo |   transfer/dev_gain_over_minority_hi |
 |---------------------:|-----------------------------------:|-------------------------------------:|-------------------------------------:|
-|                0.835 |                              0.857 |                               -0.060 |                                0.012 |
+|                0.826 |                              0.857 |                               -0.073 |                                0.009 |

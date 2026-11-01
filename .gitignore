@@ -17,6 +17,7 @@ htmlcov/
 /cache/
 /outputs/
 /cache_mini/
+/.hf_cache/
 /outputs_mini/
 /outputs_smoke/
 /cache_smoke/
