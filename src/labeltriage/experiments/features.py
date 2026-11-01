@@ -24,8 +24,9 @@ def feature_inputs(cache_dir: str | Path, base: str) -> fb.FeatureInputs:
 
 
 # Bumped whenever cached tables could be stale: v2 dropped g2_n_votes; v3 guarantees every cached
-# table holds all five groups (v2 tables built by the transfer task could lack G3).
-FEATURE_VERSION = 3
+# table holds all five groups (v2 tables built by the transfer task could lack G3); v4 is the
+# switch from the MNLI-only ChaosNLI mirror to the official SNLI + MNLI files.
+FEATURE_VERSION = 4
 
 
 def feature_cache_path(cfg: DictConfig) -> Path:
