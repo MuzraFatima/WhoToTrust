@@ -131,3 +131,8 @@ def test_summary_reports_error_shares():
     s = checks.summarise(out)
     assert s["share_spammer"] == pytest.approx(0.2, abs=0.01)
     assert s["items"] == 300
+
+
+def test_swap_map_falls_back_to_neighbour_pairs():
+    assert errors.swap_map(5).tolist() == [1, 0, 3, 2, -1]
+    assert errors.swap_map(10)[3] == 5

@@ -11,7 +11,8 @@ from omegaconf import DictConfig, OmegaConf
 from labeltriage.data import prepare, splits
 from labeltriage.eval.metrics import auprc, auroc
 from labeltriage.eval.stats import cluster_bootstrap
-from labeltriage.experiments.features import build_or_load, feature_columns, feature_inputs
+from labeltriage.experiments import features as fx
+from labeltriage.experiments.features import feature_columns, feature_inputs
 from labeltriage.experiments.train_eval import load_bundle
 from labeltriage.features import build as fb
 from labeltriage.tasks import task
@@ -23,7 +24,7 @@ from labeltriage.utils.runs import require_stage
 @task("triage")
 def triage(cfg: DictConfig) -> dict[str, Any]:
     """Gate: calibrated val AUROC >= 0.80 and calibration error < 0.05."""
-    table = build_or_load(cfg, load_bundle(cfg).votes)
+    table = fx.build_or_load(cfg, load_bundle(cfg).votes)
     cols = feature_columns(table)
     res = score(table, cols, kind=cfg.method.get("model", "lgbm"), seed=cfg.seed)
     m = res.metrics
@@ -47,8 +48,50 @@ def training_table(cfg: DictConfig) -> pd.DataFrame:
             c = OmegaConf.create(OmegaConf.to_container(cfg, resolve=False))
             c.data.noise.k = int(k)
             c.data.noise.error_type = str(etype)
-            parts.append(build_or_load(c, load_bundle(c).votes).assign(draw=f"k{k}_{etype}"))
+            parts.append(fx.build_or_load(c, load_bundle(c).votes).assign(draw=f"k{k}_{etype}"))
     return pd.concat(parts, ignore_index=True)
+
+
+def source_cfg(cfg: DictConfig, base: str, k: int, rate: float, etype: str) -> DictConfig:
+    """A copy of ``cfg`` whose data section is an AmbiNoise draw over ``base``.
+
+    Lets a run on a dataset without error labels (CIFAR-10N) build its triage model from
+    AmbiNoise without composing a second Hydra config inside a running job.
+    """
+    c = OmegaConf.create(OmegaConf.to_container(cfg, resolve=True))
+    prefix = {"cifar10h": "ambinoise_10h", "chaosnli": "ambinoise_nli"}[base]
+    c.data.base = base
+    c.data.name = f"{prefix}_k{k}_r{rate}_{etype}"
+    c.data.noise = {
+        "k": int(k),
+        "rate": float(rate),
+        "error_type": etype,
+        "num_annotators": 200,
+        "concentration": 2.0,
+        "native_cutoff": 0.10,
+        "seed": int(cfg.seed),
+        "ranking_path": f"{cfg.paths.cache_dir}/injection/{base}.parquet",
+    }
+    return c
+
+
+def source_model(cfg: DictConfig, columns: list[str]) -> TriageModel:
+    """Triage model trained on AmbiNoise draws named by ``method.transfer_source``."""
+    src = cfg.method.transfer_source
+    parts = []
+    for k in src.k:
+        for etype in src.error_types:
+            c = source_cfg(cfg, src.base, k, src.rate, etype)
+            parts.append(fx.build_or_load(c, load_bundle(c).votes))
+    table = pd.concat(parts, ignore_index=True)
+    y = table["is_error"].to_numpy(dtype=bool)
+    train = (table["split"] == "train").to_numpy()
+    val = (table["split"] == "val").to_numpy()
+    return (
+        TriageModel(columns, cfg.method.get("model", "lgbm"), cfg.seed)
+        .fit(table[train], y[train])
+        .calibrate(table[val], y[val])
+    )
 
 
 def pair_scores(votes: pd.DataFrame, p: np.ndarray) -> pd.DataFrame:

@@ -31,7 +31,9 @@ class ErrorContext:
 def swap_map(num_classes: int) -> np.ndarray:
     """``m[c]`` is the class ``c`` swaps to, or -1 if ``c`` is not in any pair."""
     m = np.full(num_classes, -1)
-    for a, b in SWAP_PAIRS[num_classes]:
+    # Other class counts fall back to pairing neighbours: 0-1, 2-3, ...
+    default = tuple((c, c + 1) for c in range(0, num_classes - 1, 2))
+    for a, b in SWAP_PAIRS.get(num_classes, default):
         m[a], m[b] = b, a
     return m
 

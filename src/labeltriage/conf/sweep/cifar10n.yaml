@@ -1,0 +1,9 @@
+# Real human noise: CIFAR-10N, evaluated on the CIFAR-10 test set and CIFAR-10.1. There are no
+# error labels, so no oracle; LabelTriage is trained on AmbiNoise-10H at K = 3. 8 methods x 3 seeds.
+name: cifar10n
+fixed: [experiment=main, stage=final, data=cifar10n]
+axes:
+  method:
+    [majority_vote, soft_labels, dawid_skene, crowdlab, confident_learning, coteaching,
+     entropy_weight, labeltriage]
+  seed: [0, 1, 2]

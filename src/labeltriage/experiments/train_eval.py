@@ -54,14 +54,24 @@ def _triage_targets(cfg: DictConfig, bundle: bundles.Bundle):
 
     m = cfg.method
     table = build_or_load(cfg, bundle.votes)
-    groups = tuple(m.get("groups", ("g1", "g2", "g3", "g4", "g5")))
-    cols = [c for c in feature_columns(table) if c.split("_")[0] in groups]
-    res = score(table, cols, kind=m.get("model", "lgbm"), seed=cfg.seed)
     train = (table["split"] == "train").to_numpy()
-    ts = targets.route(
-        table[train], bundle.num_classes, res.p_error[train], m.nu, m.h0, m.get("hard_drop")
-    )
-    return ts, res.metrics
+
+    if "is_error" not in table:
+        # Real noise without error labels (CIFAR-10N): train triage on AmbiNoise, apply here.
+        from labeltriage.experiments.triage import source_model
+
+        groups = tuple(m.transfer_groups)
+        cols = [c for c in feature_columns(table) if c.split("_")[0] in groups]
+        p_error = source_model(cfg, cols).predict(table[train])
+        metrics = {"triage/mean_p_error": float(p_error.mean())}
+    else:
+        groups = tuple(m.get("groups", ("g1", "g2", "g3", "g4", "g5")))
+        cols = [c for c in feature_columns(table) if c.split("_")[0] in groups]
+        res = score(table, cols, kind=m.get("model", "lgbm"), seed=cfg.seed)
+        p_error, metrics = res.p_error[train], res.metrics
+
+    ts = targets.route(table[train], bundle.num_classes, p_error, m.nu, m.h0, m.get("hard_drop"))
+    return ts, metrics
 
 
 def _probe_probs(cfg: DictConfig, votes: pd.DataFrame, k: int, rng) -> np.ndarray:
