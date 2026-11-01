@@ -84,7 +84,7 @@ dataset, one seed) and prints a summary with `train_seconds` per run for the com
 | 0 | Repo, CI, configs, run plumbing | done |
 | 1 | Data loaders, trainer, evaluation, baseline reproduction | code done; GPU numbers pending |
 | 2 | AmbiNoise benchmark | code done; injection model and oracle gate pending GPU |
-| 3 | Feature library | — |
+| 3 | Feature library | code done; image-side gate pending GPU |
 | 4 | Triage model and router | — |
 | 5 | Baselines, pilot, pre-registration | — |
 | 6 | Main experiments | — |

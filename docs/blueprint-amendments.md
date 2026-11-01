@@ -139,6 +139,19 @@ and the gate is a median below 0.05.
 **Measured.** Median KL is 0.0001 on CIFAR-10H and 0.003 on ChaosNLI (90th percentiles 0.0001 and
 0.016), so the sampler passes.
 
+## A9. H1 is also judged against the minority-share rule
+
+**Gap.** H1 asks LabelTriage to beat "annotator entropy alone" by 0.10 AUROC. Item vote entropy
+is the same for every vote on an item, so it cannot tell the dissenting vote from the majority
+votes. That makes it a weak reference. On VariErr's real errors it reaches only 0.60, while the
+untrained rule "the smaller this vote's share of the item, the more likely it is an error"
+reaches **0.87**.
+
+**Amendment.** Every triage result reports both untrained references, `entropy_only` and
+`minority_share_only`. H1 keeps its entropy clause as written, and adds: *LabelTriage's VariErr
+AUROC must also exceed the minority-share rule's, with a bootstrap 95% CI above zero.* Without
+this, H1 could pass while learning nothing beyond counting votes.
+
 ## Budget impact
 
 A1 adds about 0.5 GPU-hours. A4 brings G5 well under its original line, and its four headline

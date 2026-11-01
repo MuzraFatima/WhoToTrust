@@ -1,0 +1,5 @@
+name: embed
+fixed: [experiment=embed, method=majority_vote]
+axes:
+  data: [cifar10h, chaosnli, varierr, cifar10n]
+  seed: [0]

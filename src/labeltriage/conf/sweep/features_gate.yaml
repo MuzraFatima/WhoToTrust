@@ -1,0 +1,8 @@
+# Phase 3 gate: each feature group alone reaches val AUROC >= 0.60, shuffled labels give ~0.5.
+# Needs sweep/embed.yaml (and sweep/injection.yaml for plausible_wrong) to have run first.
+name: features_gate
+fixed: [experiment=features, method=majority_vote, data.noise.k=5, data.noise.rate=0.2]
+axes:
+  data: [ambinoise_10h, ambinoise_nli]
+  data.noise.error_type: [spammer, swap, lazy, plausible_wrong]
+  seed: [0]

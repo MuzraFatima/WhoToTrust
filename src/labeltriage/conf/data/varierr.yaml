@@ -1,0 +1,4 @@
+# Transfer-only: never trained or tuned on. Used for embeddings and the VariErr transfer test.
+name: varierr
+domain: text
+num_classes: 3

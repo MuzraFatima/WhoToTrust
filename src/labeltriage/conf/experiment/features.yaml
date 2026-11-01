@@ -1,0 +1,5 @@
+# Phase 3: build cached feature tables and report per-group AUROC plus the leakage test.
+name: features
+task: features
+groups: [g1, g2, g3, g4, g5]
+probe_epochs: 15
