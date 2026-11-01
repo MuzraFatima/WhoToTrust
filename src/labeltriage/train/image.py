@@ -14,7 +14,7 @@ import torch.nn.functional as F
 
 from labeltriage.targets import TargetSet
 from labeltriage.train import loop
-from labeltriage.train.models import ResNet18
+from labeltriage.train.models import FrozenDinoHead, ResNet18
 
 CIFAR_MEAN = (0.4914, 0.4822, 0.4465)
 CIFAR_STD = (0.2470, 0.2435, 0.2616)
@@ -29,6 +29,7 @@ class ImageConfig:
     loop: loop.LoopConfig = field(default_factory=_default_loop)
     width: int = 64
     augment: bool = True
+    backbone: str = "resnet18"  # or "dinov2_head" (frozen DINOv2 + MLP head, an ablation)
     eval_batch_size: int = 512
 
 
@@ -50,6 +51,14 @@ def augment(x: torch.Tensor, generator: torch.Generator) -> torch.Tensor:
     )
     flip = (torch.rand(n, generator=generator) < 0.5).to(x.device)
     return torch.where(flip.view(n, 1, 1, 1), out.flip(3), out)
+
+
+def make_model(cfg: ImageConfig, num_classes: int) -> torch.nn.Module:
+    if cfg.backbone == "resnet18":
+        return ResNet18(num_classes, cfg.width)
+    if cfg.backbone == "dinov2_head":
+        return FrozenDinoHead(num_classes)
+    raise KeyError(f"unknown image backbone {cfg.backbone!r}")
 
 
 def _forward(model, inputs):
@@ -75,7 +84,7 @@ def fit(
         raise ValueError("images and targets must be aligned")
     device = device or loop.device_default()
     torch.manual_seed(seed)
-    model = ResNet18(num_classes, cfg.width)
+    model = make_model(cfg, num_classes)
     targets = torch.as_tensor(ts.targets, dtype=torch.float32, device=device)
     weights = torch.as_tensor(ts.weights, dtype=torch.float32, device=device)
     gen = torch.Generator().manual_seed(seed)
@@ -89,7 +98,7 @@ def fit(
     peer, forget = None, None
     if coteach is not None:
         torch.manual_seed(seed + 7919)
-        peer = ResNet18(num_classes, cfg.width)
+        peer = make_model(cfg, num_classes)
         forget = loop.coteaching_schedule(*coteach)
 
     rng = np.random.default_rng(seed)

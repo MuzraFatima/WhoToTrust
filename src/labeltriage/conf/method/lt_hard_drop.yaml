@@ -1,0 +1,7 @@
+# Ablation: hard drop (w = 1[e <= 0.8]) instead of soft weighting.
+defaults:
+  - labeltriage
+  - _self_
+
+tag: hard_drop
+hard_drop: 0.8

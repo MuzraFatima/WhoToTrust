@@ -165,6 +165,7 @@ def _train_image(cfg, bundle, ts) -> tuple[Predictor, list[float], str]:
         ),
         width=t.get("width", 64),
         augment=t.get("augment", True),
+        backbone=cfg.method.get("backbone") or t.get("backbone", "resnet18"),
     )
     device = loop.device_default()
     x = bundle.train_inputs[np.arange(len(bundle.train_inputs))]

@@ -1,0 +1,7 @@
+# Ablation: second image backbone, frozen DINOv2 + MLP head (not CLIP, so G3 shares no model).
+defaults:
+  - labeltriage
+  - _self_
+
+tag: dinov2_head
+backbone: dinov2_head

@@ -1,0 +1,7 @@
+# Ablation: MLP triage model instead of LightGBM.
+defaults:
+  - labeltriage
+  - _self_
+
+tag: mlp
+model: mlp
