@@ -39,3 +39,51 @@ def test_importance_points_at_informative_features():
 def test_calibration_error_zero_when_perfect():
     y = np.array([0, 0, 1, 1], dtype=float)
     assert calibration_error(y, np.array([0.0, 0.0, 1.0, 1.0])) == 0.0
+
+
+def _table(n_items=600, seed=0):
+    from labeltriage.ambinoise.injector import NoiseSpec, inject
+    from labeltriage.features import g1_votes, g2_reliability
+
+    rng = np.random.default_rng(seed)
+    rows = []
+    for i in range(n_items):
+        t = rng.integers(0, 3)
+        share = rng.uniform(0.6, 1.0)
+        rows += [
+            (f"i{i:04d}", f"h{j}", int(t if rng.random() < share else (t + 1) % 3))
+            for j in range(20)
+        ]
+    pool = pd.DataFrame(rows, columns=["item_id", "annotator_id", "label"])
+    pool.insert(0, "dataset", "toy")
+    pool["split"] = np.where(pool["item_id"] < "i0400", "train", "val")
+    votes = inject(pool, 3, NoiseSpec(k=5, rate=0.2, num_annotators=60, concentration=1.0))
+    feats = pd.concat([g1_votes.compute(votes, 3), g2_reliability.compute(votes, 3)], axis=1)
+    return pd.concat([votes.reset_index(drop=True), feats], axis=1), list(feats.columns)
+
+
+def test_pipeline_scores_every_vote_out_of_fold():
+    from labeltriage.triage.pipeline import score
+
+    table, cols = _table()
+    res = score(table, cols)
+    assert not np.isnan(res.p_error).any()
+    m = res.metrics
+    assert m["triage/val_auroc"] > 0.8
+    assert m["triage/val_auroc"] > m["triage/val_entropy_only"]
+    # Out-of-fold train AUROC should look like held-out val, not like a memorised fit.
+    assert abs(m["triage/train_oof_auroc"] - m["triage/val_auroc"]) < 0.08
+
+
+def test_ambiguity_recall_counts_soft_routes_on_split_items():
+    from labeltriage.triage.pipeline import ambiguity_recall
+
+    votes = pd.DataFrame(
+        {
+            "item_id": ["a", "a", "b", "b", "c", "c"],
+            "label": [0, 1, 0, 1, 0, 0],
+            "is_error": [False, False, False, True, False, False],
+        }
+    )
+    routes = pd.Series({"a": "ambiguous", "b": "clear", "c": "clear"})
+    assert ambiguity_recall(votes, routes, 2) == 1.0
