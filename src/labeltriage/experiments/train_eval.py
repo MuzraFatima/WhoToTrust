@@ -64,6 +64,37 @@ def _triage_targets(cfg: DictConfig, bundle: bundles.Bundle):
     return ts, res.metrics
 
 
+def _probe_probs(cfg: DictConfig, votes: pd.DataFrame, k: int, rng) -> np.ndarray:
+    """Out-of-fold class probabilities for Confident Learning and CROWDLAB."""
+    from labeltriage.baselines import oof_pred_probs
+    from labeltriage.experiments.features import feature_inputs
+
+    mv = targets.majority(votes, k, rng)
+    emb = feature_inputs(cfg.paths.cache_dir, cfg.data.get("base", cfg.data.name)).embeddings
+    return oof_pred_probs(mv.item_ids, emb, mv.targets.argmax(axis=1), k, seed=cfg.seed)
+
+
+def _baseline(name: str):
+    def build(cfg, votes, k, rng):
+        from labeltriage import baselines
+
+        if name == "dawid_skene":
+            return baselines.dawid_skene_targets(votes, k)
+        if name == "entropy_weight":
+            return baselines.entropy_weight_targets(votes, k, rng)
+        probs = _probe_probs(cfg, votes, k, np.random.default_rng(cfg.seed))
+        if name == "confident_learning":
+            return baselines.confident_learning_targets(votes, k, probs, rng)
+        return baselines.crowdlab_targets(votes, k, probs)
+
+    return build
+
+
+BASELINES = {
+    n: _baseline(n) for n in ("dawid_skene", "entropy_weight", "confident_learning", "crowdlab")
+}
+
+
 def make_targets(
     cfg: DictConfig, bundle: bundles.Bundle, rng: np.random.Generator
 ) -> tuple[targets.TargetSet, dict[str, float]]:
@@ -78,6 +109,8 @@ def make_targets(
         ts = targets.route(votes, k, e, nu=cfg.method.nu, h0=cfg.method.h0)
     elif kind == "triage":
         ts, extra = _triage_targets(cfg, bundle)
+    elif kind in BASELINES:
+        ts = BASELINES[kind](cfg, votes, k, rng)
     else:
         ts = targets.build(kind, votes, k, rng)
 

@@ -1,0 +1,3 @@
+# Majority labels with Confident Learning issues pruned (cleanlab, prune_by_noise_rate).
+name: confident_learning
+target: confident_learning

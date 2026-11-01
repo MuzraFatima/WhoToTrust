@@ -1,0 +1,3 @@
+# Classic crowd aggregation: EM over annotator confusion matrices, hard consensus label.
+name: dawid_skene
+target: dawid_skene
