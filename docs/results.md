@@ -22,26 +22,27 @@ session.
 
 ## Phase 3: AmbiNoise-NLI, K = 5, 20% error, seed 0, val AUROC
 
-Run on CPU against the MNLI-only ChaosNLI mirror (1,099 items after removing VariErr; 545 val votes).
+Run on CPU against the MNLI-only ChaosNLI mirror (1,099 items after removing VariErr; 545 val
+votes). Recomputed with feature cache v3, after `g2_n_votes` was removed (A13).
 
-| Error type | G1 | G2 | G3 | G4 | G5 | All | Entropy only | Minority share only | Shuffled (A10) |
+| Error type | G1 | G2 | G3 | G4 | G5 | All | Entropy only | Minority share only | Shuffled, 10 draws (A10) |
 |---|---|---|---|---|---|---|---|---|---|
-| spammer | 0.753 | 0.688 | 0.788 | 0.730 | 0.717 | **0.840** | 0.647 | 0.750 | 0.457 ± 0.042 ✅ |
-| swap | 0.745 | 0.773 | 0.901 | 0.752 | 0.679 | **0.922** | 0.635 | 0.730 | 0.442 (1 draw) |
-| lazy | 0.643 | 0.794 | 0.814 | 0.812 | 0.774 | **0.920** | 0.626 | 0.601 | 0.422 (1 draw) |
+| spammer | 0.753 | 0.683 | 0.788 | 0.730 | 0.717 | **0.825** | 0.647 | 0.750 | 0.467 ± 0.049 ✅ |
+| swap | 0.745 | 0.740 | 0.901 | 0.752 | 0.679 | **0.919** | 0.635 | 0.730 | 0.467 ± 0.050 ✅ |
+| lazy | 0.643 | 0.786 | 0.814 | 0.812 | 0.774 | **0.924** | 0.626 | 0.601 | 0.484 ± 0.040 ✅ |
 
 Every group clears the 0.60 bar for every error type ✅. The plausible-wrong type and the image
 side wait on the GPU-built injection model and image embeddings.
 
-## Phase 4: triage gate, AmbiNoise-NLI dev data (K = 5, 20%, seed 0)
+## Phase 4: triage gate, AmbiNoise-NLI dev data (K = 5, 20%, seed 0, feature cache v3)
 
 Held-out half of val, about 200 votes.
 
 | Error type | Val AUROC (≥ 0.80) | Calibration error | Bar (A11) | Pass |
 |---|---|---|---|---|
-| spammer | 0.866 ✅ | 0.067 | 0.073 | ✅ |
-| swap | 0.928 ✅ | 0.056 | 0.055 | ❌ narrowly |
-| lazy | 0.900 ✅ | 0.021 | 0.056 | ✅ |
+| spammer | 0.839 ✅ | 0.044 | 0.070 | ✅ |
+| swap | 0.913 ✅ | 0.056 | 0.054 | ❌ narrowly |
+| lazy | 0.895 ✅ | 0.040 | 0.056 | ✅ |
 
 The swap miss is within sampling noise at 200 votes, but it is recorded as a miss. The decisive
 run uses full ChaosNLI and CIFAR-10H, where the bar is the original 0.05.
