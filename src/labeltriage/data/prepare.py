@@ -28,6 +28,27 @@ SPLIT_SIZES: dict[str, dict[str, float | int]] = {
 }
 
 
+def chaosnli_paths(data_dir: str | Path) -> list[Path]:
+    """Best available ChaosNLI files: the official SNLI + MNLI jsonl files, else the official zip,
+    else the MNLI-only Hugging Face mirror (development fallback, with a warning).
+
+    alphaNLI (``chaosNLI_alphanli.jsonl``) is a different task (pick the likelier of two
+    hypotheses, labels 1/2) and is deliberately not loaded.
+    """
+    try:
+        return [
+            download.fetch("chaosnli_snli", data_dir),
+            download.fetch("chaosnli_mnli_m", data_dir),
+        ]
+    except FileNotFoundError:
+        pass
+    try:
+        return [download.fetch("chaosnli", data_dir)]
+    except FileNotFoundError as err:
+        log.warning("%s; falling back to the MNLI-only mirror for development", err)
+        return [download.fetch("chaosnli_mnli_mirror", data_dir)]
+
+
 def load_source(name: str, data_dir: str | Path) -> sources.Source:
     if name == "cifar10h":
         return sources.cifar10h(download.fetch("cifar10h", data_dir))
@@ -39,12 +60,7 @@ def load_source(name: str, data_dir: str | Path) -> sources.Source:
     if name == "varierr":
         return sources.varierr(download.fetch("varierr", data_dir))
     if name == "chaosnli":
-        try:
-            path = download.fetch("chaosnli", data_dir)
-        except FileNotFoundError as err:
-            log.warning("%s; falling back to the MNLI-only mirror for development", err)
-            path = download.fetch("chaosnli_mnli_mirror", data_dir)
-        return sources.chaosnli(path)
+        return sources.chaosnli(chaosnli_paths(data_dir))
     raise KeyError(f"unknown dataset {name!r}")
 
 
