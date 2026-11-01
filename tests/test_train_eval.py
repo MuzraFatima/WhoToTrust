@@ -112,3 +112,26 @@ def test_ambinoise_runs_train_on_injected_votes(tmp_path, monkeypatch, method):
     assert "val/acc" in result["metrics"]
     if method == "oracle":
         assert any(k.startswith("route/") for k in result["metrics"])
+
+
+def test_injection_model_writes_a_cross_fitted_ranking(tmp_path, monkeypatch):
+    b = _fake_pool_bundle()
+    pool = b.votes
+    b.inputs_for = lambda ids: np.where(
+        np.isin(ids, pool.loc[pool["label"] == 1, "item_id"])[:, None, None, None], 255, 0
+    ).astype(np.uint8) * np.ones((1, 32, 32, 3), dtype=np.uint8)
+    monkeypatch.setattr(bundles, "load", lambda name, data_dir: b)
+    from labeltriage.data import prepare
+
+    monkeypatch.setattr(
+        prepare, "load_prepared", lambda name, d: (pool, None, {"classes": ["a", "b"]})
+    )
+    cfg = _cfg(
+        "experiment=injection",
+        "experiment.injection.folds=2",
+        f"paths.cache_dir={tmp_path.as_posix()}/cache",
+    )
+    result = run.execute(cfg, tmp_path / "run")
+    ranking = pd.read_parquet(result["ranking_path"])
+    assert ranking.shape == (24, 2)
+    np.testing.assert_allclose(ranking.sum(axis=1), 1.0, rtol=1e-5)
