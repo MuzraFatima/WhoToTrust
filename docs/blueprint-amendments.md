@@ -64,10 +64,17 @@ That leaves 1,099 MNLI items plus the SNLI part (1,514 items), about 2,600 in to
 AmbiNoise-NLI test split holds about 520 items (CIs near ±1.7 points instead of ±1.5). The overlap
 count goes in the dataset card, and a unit test asserts that the intersection is empty.
 
-**Data access.** ChaosNLI's official zip sits on Dropbox, which blocks scripted downloads. It is
-fetched once by hand and placed at `$LT_DATA_DIR/raw/chaosnli/chaosNLI_v1.0.zip`. The loader
-verifies it by checksum. The `tasksource/chaos-mnli-ambiguity` Hugging Face mirror (MNLI part
-only) is accepted as a fallback for development.
+**Data access.** ChaosNLI sits on Dropbox, which blocks scripted downloads. The official
+`chaosNLI_snli.jsonl` and `chaosNLI_mnli_m.jsonl` are fetched once by hand into
+`$LT_DATA_DIR/raw/chaosnli/` and verified by checksum (the zip also works). Inspection on
+2026-11-01 found both files clean: no malformed lines, nulls or duplicate IDs, and exactly 100
+votes per item. The Hugging Face mirror `chaos_mnli.jsonl` holds the same 1,599 MNLI items with
+identical votes and text, in a flat layout with entropy rounded to 10 decimals. Loading it
+together with the official MNLI file is refused, so the part cannot be counted twice.
+
+**Measured on the full data.** 1,514 SNLI + 1,599 MNLI items, minus the 500 VariErr items, gives
+**2,613** items, split 1,830 / 261 / 522. All results logged before this date used the MNLI-only
+mirror (1,099 items) and are marked as such in `docs/results.md`.
 
 ## A4. G5 training-dynamics probes are cheap and cached
 

@@ -3,6 +3,10 @@
 Phase gates and checks as they are run. GPU-dependent results are added after each Kaggle
 session.
 
+**Data note.** Sections marked *(mirror)* used the MNLI-only ChaosNLI mirror (1,099 items). From
+2026-11-01 the official SNLI + MNLI files are used (2,613 items); those sections are marked
+*(full ChaosNLI)*.
+
 ## Phase 1
 
 | Check | Result |
@@ -20,7 +24,7 @@ session.
 | Sampler KL, median (gate < 0.05, A8) | 0.0001 CIFAR-10H, 0.003 ChaosNLI ✅ |
 | Oracle within 1.0 point of clean votes (A5) | *pending GPU* |
 
-## Phase 3: AmbiNoise-NLI, K = 5, 20% error, seed 0, val AUROC
+## Phase 3: AmbiNoise-NLI, K = 5, 20% error, seed 0, val AUROC *(mirror)*
 
 Run on CPU against the MNLI-only ChaosNLI mirror (1,099 items after removing VariErr; 545 val
 votes). Recomputed with feature cache v3, after `g2_n_votes` was removed (A13).
@@ -34,7 +38,7 @@ votes). Recomputed with feature cache v3, after `g2_n_votes` was removed (A13).
 Every group clears the 0.60 bar for every error type ✅. The plausible-wrong type and the image
 side wait on the GPU-built injection model and image embeddings.
 
-## Phase 4: triage gate, AmbiNoise-NLI dev data (K = 5, 20%, seed 0, feature cache v3)
+## Phase 4: triage gate, AmbiNoise-NLI dev data (K = 5, 20%, seed 0, feature cache v3) *(mirror)*
 
 Held-out half of val, about 200 votes.
 
@@ -47,7 +51,7 @@ Held-out half of val, about 200 votes.
 The swap miss is within sampling noise at 200 votes, but it is recorded as a miss. The decisive
 run uses full ChaosNLI and CIFAR-10H, where the bar is the original 0.05.
 
-## Phase 4: first VariErr transfer check (no training or tuning on VariErr)
+## Phase 4: first VariErr transfer check (no training or tuning on VariErr) *(mirror)*
 
 Triage was trained on AmbiNoise-NLI dev draws (K = 3 and 5; spammer, swap and lazy; 20%), then
 applied to VariErr's 878 item–label pairs (129 official errors).
@@ -66,7 +70,7 @@ than simply counting votes. The method has **not** been changed in response, so 
 an untouched test. Caveats: plausible-wrong errors (the type built to resemble real errors) are
 not yet in the training mix, and ChaosNLI is still the MNLI-only mirror.
 
-## VariErr dev half after amendment A13 (250 items, 445 item–label pairs)
+## VariErr dev half after amendment A13 (250 items, 445 item–label pairs) *(mirror)*
 
 | Transfer model | Dev AUROC | − minority share (95% CI) |
 |---|---|---|

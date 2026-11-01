@@ -24,11 +24,14 @@ export LT_DATA_DIR="$WORK/data"
 export LT_CACHE_DIR="$WORK/cache"
 export LT_OUTPUT_DIR="$WORK/outputs"
 
-# ChaosNLI's official zip cannot be fetched by script. Upload it once as a Kaggle dataset (or to
-# Drive on Colab) and point CHAOSNLI_ZIP at it; otherwise the MNLI-only mirror is used.
-if [ -n "${CHAOSNLI_ZIP:-}" ] && [ -f "$CHAOSNLI_ZIP" ]; then
+# ChaosNLI cannot be fetched by script. Upload chaosNLI_snli.jsonl and chaosNLI_mnli_m.jsonl (or
+# the zip) once as a Kaggle dataset and point CHAOSNLI_DIR at it; otherwise the MNLI-only mirror
+# is used. Files are checksum-verified when loaded.
+if [ -n "${CHAOSNLI_DIR:-}" ] && [ -d "$CHAOSNLI_DIR" ]; then
   mkdir -p "$LT_DATA_DIR/raw/chaosnli"
-  cp -n "$CHAOSNLI_ZIP" "$LT_DATA_DIR/raw/chaosnli/chaosNLI_v1.0.zip"
+  for f in chaosNLI_snli.jsonl chaosNLI_mnli_m.jsonl chaosNLI_v1.0.zip; do
+    if [ -f "$CHAOSNLI_DIR/$f" ]; then cp -n "$CHAOSNLI_DIR/$f" "$LT_DATA_DIR/raw/chaosnli/"; fi
+  done
 fi
 
 for name in cifar10h cifar10n varierr chaosnli; do
