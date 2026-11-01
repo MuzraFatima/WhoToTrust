@@ -46,6 +46,25 @@ Held-out half of val, about 200 votes.
 The swap miss is within sampling noise at 200 votes, but it is recorded as a miss. The decisive
 run uses full ChaosNLI and CIFAR-10H, where the bar is the original 0.05.
 
+## Phase 4: first VariErr transfer check (no training or tuning on VariErr)
+
+Triage was trained on AmbiNoise-NLI dev draws (K = 3 and 5; spammer, swap and lazy; 20%), then
+applied to VariErr's 878 item–label pairs (129 official errors).
+
+| Score | AUROC |
+|---|---|
+| LabelTriage | **0.626** (AUPRC 0.283) |
+| Item vote entropy | 0.596 |
+| Minority share (untrained) | **0.872** |
+| LabelTriage − minority share | **−0.246**, 95% CI [−0.305, −0.191] |
+
+**Reading.** The blueprint's top-rated risk has shown up: patterns learned from synthetic errors
+transfer poorly to real ones. On this preliminary run, H1's VariErr target (≥ 0.70) is missed,
+though the result stays above the 0.60 falsification floor. LabelTriage is significantly worse
+than simply counting votes. The method has **not** been changed in response, so VariErr stays
+an untouched test. Caveats: plausible-wrong errors (the type built to resemble real errors) are
+not yet in the training mix, and ChaosNLI is still the MNLI-only mirror.
+
 ## Early VariErr signal (no training on VariErr)
 
 | Untrained score | AUROC on official error labels (878 item–label pairs, 129 errors) |
