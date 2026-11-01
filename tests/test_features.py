@@ -120,3 +120,29 @@ def test_neighbour_index_excludes_self():
     nn = neighbour_index(x, 5)
     assert nn.shape == (30, 5)
     assert not (nn == np.arange(30)[:, None]).any()
+
+
+def test_g5_dynamics_separate_flipped_votes():
+    from labeltriage.eval.metrics import auroc as auroc_of
+    from labeltriage.features import g5_dynamics
+
+    rng = np.random.default_rng(0)
+    n, k = 300, 3
+    truth = rng.integers(0, 3, n)
+    centres = rng.standard_normal((3, 8)) * 3
+    emb = pd.DataFrame(
+        centres[truth] + rng.standard_normal((n, 8)), index=[f"i{i}" for i in range(n)]
+    )
+    rows, flipped = [], []
+    for i in range(n):
+        for a in range(k):
+            bad = rng.random() < 0.2
+            lab = (truth[i] + rng.integers(1, 3)) % 3 if bad else truth[i]
+            rows.append((f"i{i}", f"u{a}", int(lab)))
+            flipped.append(bad)
+    v = _votes(rows)
+    f = g5_dynamics.compute(v, 3, emb, epochs=20, hidden=16, lr=1e-2)
+    assert not f.isna().any().any()
+    flipped = np.array(flipped)
+    assert auroc_of(flipped, -f["g5_aum"].to_numpy()) > 0.85
+    assert auroc_of(flipped, -f["g5_oof_prob"].to_numpy()) > 0.85
