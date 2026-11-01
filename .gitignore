@@ -39,3 +39,13 @@ Thumbs.db
 /streamlit.log
 /.pip_cache/
 /.npm_cache/
+/.tools/
+/e2e_run.log
+/api_test.log
+/npm_install.log
+
+# Web app
+/web/node_modules/
+/web/dist/
+/web/test-results/
+/web/playwright-report/
