@@ -103,7 +103,7 @@ new session with `RESUME_FROM`. Finished runs are skipped. Each session is sized
 
 | Session | Sweeps, in order | Est. GPU-h | Then |
 |---|---|---|---|
-| **S1** | `t1_s1_reproduce` | 0.3 | **Stop. Report the measured `train_seconds` per run** (in `outputs/summary_runs.csv`) before continuing. |
+| **S1** | `t1_s1_reproduce`, then the GPU smoke test (`SMOKE=1`, no sweep argument) | 0.3 + ~0.6 | **Stop. Report the measured `train_seconds` per run** (in `outputs/summary_runs.csv`) **and the smoke test's PASS/FAIL list** before continuing. |
 | S2 | `injection`, `t1_s2_embed`, `features_gate`, `triage_gate`, `t1_s2_transfer_dev` | ~1 + CPU | **Report `transfer/dev_auroc`** (the VariErr dev re-measure with plausible-wrong errors). |
 | S3 | `t1_s3_oracle_gate`, `t1_s3_pilot`, `tune_router` | 5.0 | Run `python scripts/preregister.py outputs/summary_runs.csv --tune outputs/summary_runs.csv`, fill every "to fill" in `docs/prereg-v1.md`, commit. **The owner reads it and tags `prereg-v1`.** |
 | S4 | `t1_s4_main_core` with `SHARD=1/2` | 4.8 | — |
@@ -115,6 +115,11 @@ run. If session 1 measures more than 1.5× that (360 s) for either, **stop and r
 session 2**. Cuts follow the order in `docs/prereg-v1.md`: step 9 first, then the pilot's
 second seed. The same rule applies to any later session that runs more than 1.5× over its
 estimate.
+
+The smoke test runs every GPU code path once, for one epoch (training, Co-teaching, the
+injection model, the embedding models, LabelTriage, CROWDLAB, Confident Learning, harm targets
+and the DINOv2 backbone). It writes only to `outputs_smoke/` and `cache_smoke/`, so nothing in it
+counts as a real run. Any FAIL is fixed before session 2.
 
 Nothing with `stage=final` (sessions S4–S6) may start before the `prereg-v1` tag exists.
 

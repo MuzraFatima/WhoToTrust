@@ -13,13 +13,18 @@
 #   MAX_HOURS=h  start no new run after h hours (default 8, safely inside Kaggle's 12 h limit)
 #   RESUME_FROM  a previous session's saved /kaggle/working (its outputs/ and cache/ are reused)
 #   CHAOSNLI_DIR folder holding chaosNLI_snli.jsonl and chaosNLI_mnli_m.jsonl (or the zip)
+#   SMOKE=1      run the GPU smoke test (scripts/smoke_gpu.sh) instead of a sweep; no SPEC needed
 set -euo pipefail
 
 REPO_URL=${REPO_URL:-https://github.com/MuzraFatima/WhoToTrust.git}
 BRANCH=${BRANCH:-main}
 MAX_HOURS=${MAX_HOURS:-8}
-SPEC=${1:?usage: kaggle_bootstrap.sh SPEC [overrides...]}
-shift
+if [ "${SMOKE:-0}" = "1" ]; then
+  SPEC=smoke
+else
+  SPEC=${1:?usage: kaggle_bootstrap.sh SPEC [overrides...]}
+  shift
+fi
 
 if [ -d /kaggle/working ]; then WORK=/kaggle/working; else WORK=/content; fi
 cd "$WORK"
@@ -64,6 +69,15 @@ for name in cifar10h cifar10n varierr chaosnli; do
   [ -f "$LT_DATA_DIR/processed/$name/meta.json" ] || \
     python -m labeltriage.data.prepare "$name" --data-dir "$LT_DATA_DIR"
 done
+
+if [ "$SPEC" = "smoke" ]; then
+  status=0
+  WORK="$WORK" bash scripts/smoke_gpu.sh || status=$?
+  echo
+  if [ "$status" = 0 ]; then echo "SMOKE TEST PASSED"; else echo "SMOKE TEST: $status step(s) failed"; fi
+  echo "Save the version (the logs are in outputs_smoke/), then TURN THE SESSION OFF."
+  exit "$status"
+fi
 
 status=0
 python scripts/run_grid.py "$SPEC" --out "$LT_OUTPUT_DIR/grid" ${SHARD:+--shard "$SHARD"} \
