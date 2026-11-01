@@ -1,0 +1,6 @@
+# Phase 4 gate: calibrated triage on AmbiNoise val votes.
+name: triage
+task: triage
+min_auroc: 0.80
+max_calibration_error: 0.05
+probe_epochs: 15

@@ -84,8 +84,8 @@ dataset, one seed) and prints a summary with `train_seconds` per run for the com
 | 0 | Repo, CI, configs, run plumbing | done |
 | 1 | Data loaders, trainer, evaluation, baseline reproduction | code done; GPU numbers pending |
 | 2 | AmbiNoise benchmark | code done; injection model and oracle gate pending GPU |
-| 3 | Feature library | code done; image-side gate pending GPU |
-| 4 | Triage model and router | — |
+| 3 | Feature library | done on NLI; image side pending GPU |
+| 4 | Triage model and router | code done; first VariErr transfer is a miss (see docs/results.md) |
 | 5 | Baselines, pilot, pre-registration | — |
 | 6 | Main experiments | — |
 | 7 | Harm analysis, ablations, explorer | — |

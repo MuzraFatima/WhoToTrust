@@ -1,0 +1,8 @@
+# The proposed method: learned per-annotation triage plus three-route targets.
+name: labeltriage
+target: triage
+model: lgbm          # lgbm | mlp (ablation)
+groups: [g1, g2, g3, g4, g5]
+nu: 1.5              # unreliable if fewer effective votes survive
+h0: 0.3              # clear if cleaned-vote entropy is at most this (nats)
+hard_drop: null      # set to 0.8 for the hard-drop ablation

@@ -47,17 +47,46 @@ def load_bundle(cfg: DictConfig) -> bundles.Bundle:
     return bundles.ambinoise(bundle, spec, ranking)
 
 
-def make_targets(cfg: DictConfig, bundle: bundles.Bundle, rng: np.random.Generator):
+def _triage_targets(cfg: DictConfig, bundle: bundles.Bundle):
+    """LabelTriage: features, out-of-fold p(error) per train vote, then the router."""
+    from labeltriage.experiments.features import build_or_load, feature_columns
+    from labeltriage.triage.pipeline import score
+
+    m = cfg.method
+    table = build_or_load(cfg, bundle.votes)
+    groups = tuple(m.get("groups", ("g1", "g2", "g3", "g4", "g5")))
+    cols = [c for c in feature_columns(table) if c.split("_")[0] in groups]
+    res = score(table, cols, kind=m.get("model", "lgbm"), seed=cfg.seed)
+    train = (table["split"] == "train").to_numpy()
+    ts = targets.route(
+        table[train], bundle.num_classes, res.p_error[train], m.nu, m.h0, m.get("hard_drop")
+    )
+    return ts, res.metrics
+
+
+def make_targets(
+    cfg: DictConfig, bundle: bundles.Bundle, rng: np.random.Generator
+) -> tuple[targets.TargetSet, dict[str, float]]:
+    """Targets for the train items, plus any metrics the method reports about itself."""
     kind, votes, k = cfg.method.target, bundle.train_votes, bundle.num_classes
+    extra: dict[str, float] = {}
     if kind == "clean":
         # The sampled human votes before any injected corruption (AmbiNoise only).
         ts = targets.soft(votes.assign(label=votes["original_label"]), k)
     elif kind == "oracle":
         e = votes["is_error"].to_numpy(dtype=float)
         ts = targets.route(votes, k, e, nu=cfg.method.nu, h0=cfg.method.h0)
+    elif kind == "triage":
+        ts, extra = _triage_targets(cfg, bundle)
     else:
         ts = targets.build(kind, votes, k, rng)
-    return ts.align(bundle.train_item_ids)
+
+    if ts.routes is not None and "is_error" in votes:
+        from labeltriage.triage.pipeline import ambiguity_recall
+
+        routes = pd.Series(ts.routes, index=ts.item_ids)
+        extra["route/ambiguity_recall"] = ambiguity_recall(votes, routes, k, cfg.method.h0)
+    return ts.align(bundle.train_item_ids), extra
 
 
 def _train_image(cfg, bundle, ts) -> tuple[Predictor, list[float], str]:
@@ -144,7 +173,7 @@ def eval_names(cfg: DictConfig) -> list[str]:
 def train_eval(cfg: DictConfig) -> dict[str, Any]:
     rng = seed_everything(cfg.seed)
     bundle = load_bundle(cfg)
-    ts = make_targets(cfg, bundle, rng)
+    ts, method_metrics = make_targets(cfg, bundle, rng)
 
     start = time.perf_counter()
     predict, history, device = TRAINERS[bundle.domain](cfg, bundle, ts)
@@ -156,7 +185,7 @@ def train_eval(cfg: DictConfig) -> dict[str, Any]:
         routes = {f"route/{n}": float(c / len(ts)) for n, c in zip(names, counts, strict=True)}
 
     return {
-        "metrics": evaluate(predict, bundle, eval_names(cfg), cfg.stage) | routes,
+        "metrics": evaluate(predict, bundle, eval_names(cfg), cfg.stage) | routes | method_metrics,
         "history": history,
         "train_seconds": train_seconds,
         "device": device,

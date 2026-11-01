@@ -135,3 +135,28 @@ def test_injection_model_writes_a_cross_fitted_ranking(tmp_path, monkeypatch):
     ranking = pd.read_parquet(result["ranking_path"])
     assert ranking.shape == (24, 2)
     np.testing.assert_allclose(ranking.sum(axis=1), 1.0, rtol=1e-5)
+
+
+def test_labeltriage_method_routes_with_out_of_fold_scores(tmp_path, monkeypatch):
+    from labeltriage.experiments import features as fx
+    from labeltriage.features import g1_votes, g2_reliability
+
+    monkeypatch.setattr(bundles, "load", lambda name, data_dir: _fake_pool_bundle(n=24))
+
+    def fake_features(cfg, votes):
+        f = pd.concat([g1_votes.compute(votes, 2), g2_reliability.compute(votes, 2)], axis=1)
+        return pd.concat([votes.reset_index(drop=True), f], axis=1)
+
+    monkeypatch.setattr(fx, "build_or_load", fake_features)
+    cfg = _cfg(
+        "data=ambinoise_10h",
+        "data.noise.k=5",
+        "data.noise.rate=0.4",
+        "data.noise.num_annotators=20",
+        "method=labeltriage",
+        "method.groups=[g1,g2]",
+    )
+    result = run.execute(cfg, tmp_path)
+    m = result["metrics"]
+    assert "triage/val_auroc" in m and "route/ambiguity_recall" in m
+    assert result["n_train"] == 20

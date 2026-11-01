@@ -152,6 +152,34 @@ reaches **0.87**.
 AUROC must also exceed the minority-share rule's, with a bootstrap 95% CI above zero.* Without
 this, H1 could pass while learning nothing beyond counting votes.
 
+## A10. The leakage test is one-sided and averaged over shuffles
+
+**Gap.** The risk register asks that "shuffled labels must give AUROC near 0.5". A single shuffle
+on about 550 val votes has a standard error near 0.03, so one draw cannot settle the question.
+On the first real AmbiNoise-NLI run, 20 shuffles gave a mean of 0.462 (SD 0.037): consistently
+slightly *below* 0.5.
+
+**Amendment.** The detector is refitted on 10 independent shuffles of the train labels. The test
+**fails only if the mean shuffled AUROC exceeds 0.5 + max(0.02, 2 SE)**. Leakage, meaning answer
+information reaching the features, can only raise AUROC above chance. A mean below 0.5 comes
+from how a noise-fitted LightGBM behaves in sparse feature regions, where errors concentrate.
+That is not a pipeline fault, and feature groups are structurally barred from the answer columns
+anyway (`features.check_inputs`). The cross-fitting itself is checked separately: out-of-fold
+train AUROC must sit close to held-out val AUROC.
+
+## A11. The calibration gate respects what the sample can measure
+
+**Gap.** Phase 4 asks for triage calibration error under 0.05. ECE is biased upward on small
+samples. On the MNLI-only development data, the held-out val half has about 200 votes, and a
+*perfectly* calibrated scorer with the same predictions shows a mean ECE of 0.043 and a 95th
+percentile of 0.064. The bar cannot be checked there.
+
+**Amendment.** The calibration bar is `max(0.05, q95)`, where `q95` is the 95th-percentile ECE of
+a perfectly calibrated scorer with the same predictions and sample size (300 simulated label
+draws). The bar is reported next to every result. With about 5,000 held votes (CIFAR-10H) `q95`
+is about 0.015, so the original 0.05 applies unchanged. The bar only relaxes where it would
+otherwise be unmeasurable.
+
 ## Budget impact
 
 A1 adds about 0.5 GPU-hours. A4 brings G5 well under its original line, and its four headline

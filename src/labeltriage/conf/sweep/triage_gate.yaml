@@ -1,0 +1,6 @@
+name: triage_gate
+fixed: [experiment=triage, method=labeltriage, data.noise.k=5, data.noise.rate=0.2]
+axes:
+  data: [ambinoise_10h, ambinoise_nli]
+  data.noise.error_type: [spammer, swap, lazy, plausible_wrong]
+  seed: [0]
