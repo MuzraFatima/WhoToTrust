@@ -157,7 +157,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--report", default="outputs_mini/report.md")
     parser.add_argument("--steps", nargs="*", default=list(STEPS), choices=STEPS)
     args = parser.parse_args(argv)
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", force=True
+    )
 
     specs = [embed_spec(Path(args.cache))]
     specs += [OmegaConf.to_container(OmegaConf.load(SWEEPS / f"{s}.yaml")) for s in args.steps]

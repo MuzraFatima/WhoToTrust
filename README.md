@@ -78,6 +78,37 @@ in a browser and put `chaosNLI_snli.jsonl` and `chaosNLI_mnli_m.jsonl` in `data/
 `chaosNLI_alphanli.jsonl` is a different task and is not used. Without the official files, an
 MNLI-only mirror is used, with a warning.
 
+## Running locally on a laptop: the mini profile
+
+No GPU and no Kaggle needed. The mini profile (amendment A15) runs every stage of the project
+on an ordinary CPU, using only the data in this folder:
+
+- **Smaller data.** A fixed, stratified subset of each dataset: 1,500 of the 10,000 CIFAR-10H
+  images, 1,200 of the 2,613 ChaosNLI items, and all 500 VariErr items. Each item keeps its
+  original train / val / test split. The subsets are committed in `conf/splits/mini/`, and
+  `data/` is never changed.
+- **A lighter classifier.** A small MLP head on frozen embeddings (DINOv2-small for images,
+  MiniLM for NLI) replaces fine-tuning ResNet-18 / DeBERTa. Embeddings are computed once and
+  cached, so a training run takes seconds.
+- **Its own folders.** `cache_mini/` and `outputs_mini/`, so nothing mixes with full runs.
+
+```bash
+pip install -e ".[train,features,crowd]"
+python -m labeltriage.data.prepare cifar10h varierr chaosnli --data-dir data   # if not done
+python scripts/make_mini.py --seed-cache   # subsets + reuse embeddings already in cache/
+python scripts/run_mini.py                 # all steps, then outputs_mini/report.md
+```
+
+`run_mini.py` is resumable: if it is interrupted, run it again and it continues. Any single
+run also works with `profile=mini`, for example
+`python -m labeltriage.run profile=mini experiment=reproduce data=chaosnli method=soft_labels`.
+
+Mini runs are **dev stage only** (val and clean_dev). Their test items belong to the real test
+split, which stays sealed until the `prereg-v1` tag. Mini numbers show that the pipeline works
+and which way the effects go. They are not the pre-registered results, and
+`scripts/analyze.py` refuses them. The latest local results are in
+[`docs/results-mini.md`](docs/results-mini.md).
+
 ## Running on Kaggle: Tier 1 run order
 
 Tier 1 (about 23 GPU-hours) is the approved minimum that supports H1–H4. Its scope and cut
