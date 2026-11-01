@@ -1,0 +1,9 @@
+# Phase 5: tune the router's nu and h0 on validation only (selection criterion: val/nll against
+# the CIFAR-10H val gold labels). Seed 100 is kept apart from the main-grid seeds.
+name: tune_router
+fixed: [experiment=tune_router, data=ambinoise_10h, method=labeltriage_tune, data.noise.k=5, data.noise.rate=0.2]
+axes:
+  data.noise.error_type: [spammer, plausible_wrong]
+  method.nu: [1.0, 1.5, 2.0]
+  method.h0: [0.2, 0.3, 0.5]
+  seed: [100]

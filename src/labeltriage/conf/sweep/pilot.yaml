@@ -1,0 +1,10 @@
+# Phase 5 pilot: all nine methods on the four headline settings, two seeds, to measure seed
+# spread and the minimum detectable effect before pre-registration.
+name: pilot
+fixed: [experiment=pilot, data=ambinoise_10h, data.noise.k=5, data.noise.rate=0.2]
+axes:
+  data.noise.error_type: [spammer, swap, lazy, plausible_wrong]
+  method:
+    [majority_vote, soft_labels, dawid_skene, crowdlab, confident_learning, coteaching,
+     entropy_weight, oracle, labeltriage]
+  seed: [0, 1]

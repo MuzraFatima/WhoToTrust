@@ -1,0 +1,3 @@
+# Majority label weighted by 1 - H(votes)/log C: "disagreement means unreliable", no learning.
+name: entropy_weight
+target: entropy_weight

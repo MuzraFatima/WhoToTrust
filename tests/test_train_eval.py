@@ -160,3 +160,33 @@ def test_labeltriage_method_routes_with_out_of_fold_scores(tmp_path, monkeypatch
     m = result["metrics"]
     assert "triage/val_auroc" in m and "route/ambiguity_recall" in m
     assert result["n_train"] == 20
+
+
+@pytest.mark.parametrize(
+    "method", ["dawid_skene", "entropy_weight", "confident_learning", "crowdlab"]
+)
+def test_baseline_methods_train_end_to_end(tmp_path, monkeypatch, method):
+    pytest.importorskip("cleanlab")
+    from labeltriage.experiments import features as fx
+    from labeltriage.features import build as fb
+
+    b = _fake_pool_bundle()
+    monkeypatch.setattr(bundles, "load", lambda name, data_dir: b)
+    ids = np.sort(b.votes["item_id"].unique())
+    emb = pd.DataFrame(np.random.default_rng(0).standard_normal((len(ids), 4)), index=ids)
+    monkeypatch.setattr(fx, "feature_inputs", lambda d, base: fb.FeatureInputs(None, emb))
+    cfg = _cfg(
+        "data=ambinoise_10h",
+        "data.noise.k=5",
+        "data.noise.num_annotators=20",
+        f"method={method}",
+    )
+    result = run.execute(cfg, tmp_path)
+    assert result["n_train"] == 20
+
+
+def test_coteaching_method_runs(tmp_path, monkeypatch):
+    monkeypatch.setattr(bundles, "load", lambda name, data_dir: _fake_pool_bundle())
+    cfg = _cfg("data=ambinoise_10h", "data.noise.num_annotators=20", "method=coteaching")
+    result = run.execute(cfg, tmp_path)
+    assert result["n_train"] == 20

@@ -1,0 +1,6 @@
+# Noise-robust training on majority labels that ignores annotator structure (Han et al., 2018).
+# Used for images and NLI alike (amendment A12).
+name: coteaching
+target: hard
+trainer: coteaching
+ramp_frac: 0.2   # forget rate reaches tau after this share of epochs

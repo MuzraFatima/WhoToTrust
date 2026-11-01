@@ -20,6 +20,11 @@ def collect(root: str | Path) -> pd.DataFrame:
                 "experiment": cfg.get("experiment", {}).get("name"),
                 "data": cfg.get("data", {}).get("name"),
                 "method": cfg.get("method", {}).get("name"),
+                **{
+                    f"method.{k}": cfg["method"][k]
+                    for k in ("tag", "nu", "h0", "hard_drop", "model")
+                    if k in cfg.get("method", {})
+                },
                 "seed": cfg.get("seed"),
                 "stage": cfg.get("stage"),
                 "train_seconds": result.get("train_seconds"),

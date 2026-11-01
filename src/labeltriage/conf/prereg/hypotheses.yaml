@@ -1,0 +1,33 @@
+# Pre-registered hypotheses (blueprint section 4, with amendments A6 and A9).
+# Frozen by the git tag prereg-v1 before any stage=final run. Do not edit after tagging.
+H1:
+  question: Can disagreement patterns separate annotation error from genuine ambiguity?
+  metric: triage/val_auroc            # per-annotation error-detection AUROC
+  ambinoise_min: 0.85
+  varierr_min: 0.70
+  gain_over_entropy_min: 0.10
+  gain_over_minority_share_ci_above: 0.0   # A9
+  falsified_if: {gain_over_entropy_below: 0.03, varierr_below: 0.60}
+H2:
+  question: Does per-example triage improve generalisation over one global rule?
+  metric: clean_test/acc
+  main_setting: {k: 5, rate: 0.2, error_types: [spammer, swap, lazy, plausible_wrong]}  # A6
+  gain_over_best_global_min_points: 1.5
+  never_worse_than_points: -0.5
+  best_global_rule: better of majority_vote and soft_labels, chosen on test per setting  # A6
+  test: paired Wilcoxon over 12 settings (4 types x 3 rates) plus per-setting bootstrap 95% CI
+  falsified_if: 95% CI of the gain in the main setting includes 0
+H3:
+  question: Which disagreement patterns harm generalisation?
+  metrics: [clean_test/acc, clean_test/ece]
+  remove_errors: clean accuracy rises
+  collapse_ambiguity: accuracy flat, ECE worse by >= 20% relative
+  falsified_if: collapsing ambiguity changes ECE by < 5% relative
+H4:
+  question: Does triage keep human-like uncertainty on ambiguous items?
+  metric: human_test/kl  # on held-out ambiguous CIFAR-10H images
+  within_soft_label_relative: 0.10
+  below_majority_vote_relative: 0.30
+  falsified_if: KL not significantly below majority vote
+correction: Holm-Bonferroni across H1-H4
+seeds: {headline: 5, other: 3}

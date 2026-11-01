@@ -64,6 +64,37 @@ def _triage_targets(cfg: DictConfig, bundle: bundles.Bundle):
     return ts, res.metrics
 
 
+def _probe_probs(cfg: DictConfig, votes: pd.DataFrame, k: int, rng) -> np.ndarray:
+    """Out-of-fold class probabilities for Confident Learning and CROWDLAB."""
+    from labeltriage.baselines import oof_pred_probs
+    from labeltriage.experiments.features import feature_inputs
+
+    mv = targets.majority(votes, k, rng)
+    emb = feature_inputs(cfg.paths.cache_dir, cfg.data.get("base", cfg.data.name)).embeddings
+    return oof_pred_probs(mv.item_ids, emb, mv.targets.argmax(axis=1), k, seed=cfg.seed)
+
+
+def _baseline(name: str):
+    def build(cfg, votes, k, rng):
+        from labeltriage import baselines
+
+        if name == "dawid_skene":
+            return baselines.dawid_skene_targets(votes, k)
+        if name == "entropy_weight":
+            return baselines.entropy_weight_targets(votes, k, rng)
+        probs = _probe_probs(cfg, votes, k, np.random.default_rng(cfg.seed))
+        if name == "confident_learning":
+            return baselines.confident_learning_targets(votes, k, probs, rng)
+        return baselines.crowdlab_targets(votes, k, probs)
+
+    return build
+
+
+BASELINES = {
+    n: _baseline(n) for n in ("dawid_skene", "entropy_weight", "confident_learning", "crowdlab")
+}
+
+
 def make_targets(
     cfg: DictConfig, bundle: bundles.Bundle, rng: np.random.Generator
 ) -> tuple[targets.TargetSet, dict[str, float]]:
@@ -78,6 +109,8 @@ def make_targets(
         ts = targets.route(votes, k, e, nu=cfg.method.nu, h0=cfg.method.h0)
     elif kind == "triage":
         ts, extra = _triage_targets(cfg, bundle)
+    elif kind in BASELINES:
+        ts = BASELINES[kind](cfg, votes, k, rng)
     else:
         ts = targets.build(kind, votes, k, rng)
 
@@ -87,6 +120,21 @@ def make_targets(
         routes = pd.Series(ts.routes, index=ts.item_ids)
         extra["route/ambiguity_recall"] = ambiguity_recall(votes, routes, k, cfg.method.h0)
     return ts.align(bundle.train_item_ids), extra
+
+
+def coteaching_setting(cfg: DictConfig, bundle: bundles.Bundle) -> tuple[float, int] | None:
+    """(tau, ramp epochs) for Co-teaching, or None for ordinary training.
+
+    Tau, the share of each batch to drop, is estimated from the votes as the share disagreeing
+    with their item's majority (capped at 0.5), since the true noise rate is unknown in practice.
+    """
+    if cfg.method.get("trainer") != "coteaching":
+        return None
+    votes = bundle.train_votes
+    majority = votes.groupby("item_id")["label"].agg(lambda s: s.value_counts().idxmax())
+    disagree = (votes["label"].to_numpy() != votes["item_id"].map(majority).to_numpy()).mean()
+    ramp = max(1, round(cfg.method.get("ramp_frac", 0.2) * cfg.data.train.epochs))
+    return float(min(0.5, disagree)), int(ramp)
 
 
 def _train_image(cfg, bundle, ts) -> tuple[Predictor, list[float], str]:
@@ -106,7 +154,8 @@ def _train_image(cfg, bundle, ts) -> tuple[Predictor, list[float], str]:
     )
     device = loop.device_default()
     x = bundle.train_inputs[np.arange(len(bundle.train_inputs))]
-    model, history = image.fit(x, ts, bundle.num_classes, icfg, cfg.seed, device)
+    coteach = coteaching_setting(cfg, bundle)
+    model, history = image.fit(x, ts, bundle.num_classes, icfg, cfg.seed, device, coteach=coteach)
 
     def predict(inputs):
         return image.predict(model, inputs, icfg.eval_batch_size, device)
@@ -115,6 +164,7 @@ def _train_image(cfg, bundle, ts) -> tuple[Predictor, list[float], str]:
 
 
 def _train_text(cfg, bundle, ts) -> tuple[Predictor, list[float], str]:
+    import torch
     from transformers import AutoTokenizer
 
     from labeltriage.train import loop, models, text
@@ -137,7 +187,12 @@ def _train_text(cfg, bundle, ts) -> tuple[Predictor, list[float], str]:
     tok = AutoTokenizer.from_pretrained(tcfg.model_name)
     enc = text.tokenize(*bundle.train_inputs, tok, tcfg.max_length)
     model = models.text_classifier(tcfg.model_name, bundle.num_classes)
-    model, history = text.fit(model, enc, ts, tcfg, cfg.seed, device)
+    coteach = coteaching_setting(cfg, bundle)
+    peer = None
+    if coteach is not None:
+        torch.manual_seed(cfg.seed + 7919)
+        peer = models.text_classifier(tcfg.model_name, bundle.num_classes)
+    model, history = text.fit(model, enc, ts, tcfg, cfg.seed, device, peer=peer, coteach=coteach)
 
     def predict(inputs):
         return text.predict(

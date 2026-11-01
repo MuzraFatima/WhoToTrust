@@ -1,5 +1,7 @@
 # The proposed method: learned per-annotation triage plus three-route targets.
 name: labeltriage
+# Variants (tuning, ablations) get their own run directories through `tag`.
+tag: ""
 target: triage
 model: lgbm          # lgbm | mlp (ablation)
 groups: [g1, g2, g3, g4, g5]

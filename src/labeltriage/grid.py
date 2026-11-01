@@ -35,7 +35,8 @@ def expand(spec: DictConfig | dict) -> Iterator[list[str]]:
 
 
 def run_dir_for(cfg: DictConfig, root: str | Path) -> Path:
-    return Path(root) / cfg.experiment.name / cfg.data.name / cfg.method.name / f"seed{cfg.seed}"
+    method = cfg.method.name + (f"-{cfg.method.tag}" if cfg.method.get("tag") else "")
+    return Path(root) / cfg.experiment.name / cfg.data.name / method / f"seed{cfg.seed}"
 
 
 def run_grid(spec: DictConfig | dict, root: str | Path, extra: list[str] | None = None) -> dict:

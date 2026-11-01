@@ -61,7 +61,10 @@ def fit(
     seed: int,
     device: torch.device | None = None,
     on_epoch=None,
+    peer: torch.nn.Module | None = None,
+    coteach: tuple[float, int] | None = None,
 ) -> tuple[torch.nn.Module, list[float]]:
+    """Fine-tune ``model``; with ``peer`` and ``coteach=(tau, ramp_epochs)``, via Co-teaching."""
     n = _length(encodings)
     if n != len(ts):
         raise ValueError("encodings and targets must be aligned")
@@ -73,8 +76,9 @@ def fit(
     def get_batch(idx, train):
         return _slice(encodings, idx, device), targets[idx], weights[idx]
 
+    forget = loop.coteaching_schedule(*coteach) if coteach is not None else None
     rng = np.random.default_rng(seed)
-    history = loop.fit(model, n, get_batch, _forward, cfg.loop, rng, device, on_epoch)
+    history = loop.fit(model, n, get_batch, _forward, cfg.loop, rng, device, on_epoch, peer, forget)
     return model, history
 
 

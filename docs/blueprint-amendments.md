@@ -180,6 +180,22 @@ draws). The bar is reported next to every result. With about 5,000 held votes (C
 is about 0.015, so the original 0.05 applies unchanged. The bar only relaxes where it would
 otherwise be unmeasurable.
 
+## A12. Co-teaching is the robust-training baseline for both domains
+
+**Gap.** The blueprint plans DivideMix for images and Co-teaching for NLI, with DivideMix's
+official code. DivideMix needs its own two-stage semi-supervised pipeline (Gaussian-mixture
+splits, MixMatch), which does not fit the shared weighted-soft-target trainer that every other
+method uses. It is also the method the risk register already flags as "slow or unstable on
+7,000 images".
+
+**Amendment.** The risk register's fallback is taken up front: **Co-teaching runs in both
+domains**, inside the shared training loop (same backbone, epochs, augmentation and seeds as
+every other method). The forget rate ramps linearly to τ over the first 20% of epochs. τ is
+estimated from the votes as the share disagreeing with their item's majority, capped at 0.5,
+since the true noise rate is not available in practice. The baseline table names it
+"Co-teaching". If the compute buffer allows after Phase 6, DivideMix may be added for images as
+an extra row, but it is not part of any pre-registered comparison.
+
 ## Budget impact
 
 A1 adds about 0.5 GPU-hours. A4 brings G5 well under its original line, and its four headline

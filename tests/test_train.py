@@ -93,3 +93,23 @@ def test_text_fit_runs_with_a_tiny_random_model():
     probs = text.predict(model, enc, batch_size=5, device=CPU)
     assert probs.shape == (n, 3)
     assert len(history) == 2
+
+
+def test_coteaching_trains_two_networks_on_each_others_easy_items():
+    x, y, ts = _tiny_images()
+    flipped = ts.targets.copy()
+    flipped[:4] = flipped[:4, ::-1]  # a few wrong labels
+    noisy = TargetSet(ts.item_ids, flipped, ts.weights)
+    cfg = image.ImageConfig(
+        loop=loop.LoopConfig(epochs=30, batch_size=8, lr=0.05, amp=False), width=4
+    )
+    model, history = image.fit(x, noisy, 2, cfg, seed=0, device=CPU, coteach=(0.2, 5))
+    assert len(history) == 30
+    assert (image.predict(model, x, device=CPU).argmax(1) == y).mean() >= 0.9
+
+
+def test_coteaching_schedule_ramps_then_holds():
+    f = loop.coteaching_schedule(0.3, 10)
+    assert f(0) == 0.0
+    assert f(5) == pytest.approx(0.15)
+    assert f(20) == pytest.approx(0.3)
