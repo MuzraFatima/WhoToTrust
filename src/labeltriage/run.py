@@ -39,6 +39,10 @@ def execute(cfg: DictConfig, run_dir: str | Path) -> dict[str, Any] | None:
     (run_dir / "config.yaml").write_text(OmegaConf.to_yaml(cfg, resolve=True))
 
     result = TASKS[cfg.experiment.task](cfg)
+    # Tasks may hand back tables (e.g. scored votes for the explorer); they are saved beside the
+    # result rather than inlined into result.json.
+    for name, table in result.pop("_artifacts", {}).items():
+        table.to_parquet(run_dir / f"{name}.parquet", index=False)
     result["config"] = OmegaConf.to_container(cfg, resolve=True)
     runs.write_result(run_dir, result)
     tracking.log_result(cfg, result)

@@ -71,7 +71,26 @@ def _triage_targets(cfg: DictConfig, bundle: bundles.Bundle):
         p_error, metrics = res.p_error[train], res.metrics
 
     ts = targets.route(table[train], bundle.num_classes, p_error, m.nu, m.h0, m.get("hard_drop"))
-    return ts, metrics
+    scored = table.loc[train, [c for c in SCORED_COLUMNS if c in table]].assign(p_error=p_error)
+    scored["route"] = scored["item_id"].map(dict(zip(ts.item_ids, ts.routes, strict=True)))
+    return ts, metrics, scored.reset_index(drop=True)
+
+
+# What the Disagreement Explorer needs per vote: identity, truth (when known) and one headline
+# signal from each feature group.
+SCORED_COLUMNS = (
+    "item_id",
+    "annotator_id",
+    "label",
+    "is_error",
+    "error_type",
+    "g1_entropy",
+    "g1_share",
+    "g2_ds_accuracy",
+    "g3_p_label",
+    "g4_nb_include",
+    "g5_aum",
+)
 
 
 def _probe_probs(cfg: DictConfig, votes: pd.DataFrame, k: int, rng) -> np.ndarray:
@@ -107,10 +126,12 @@ BASELINES = {
 
 def make_targets(
     cfg: DictConfig, bundle: bundles.Bundle, rng: np.random.Generator
-) -> tuple[targets.TargetSet, dict[str, float]]:
-    """Targets for the train items, plus any metrics the method reports about itself."""
+) -> tuple[targets.TargetSet, dict[str, float], dict[str, pd.DataFrame]]:
+    """Targets for the train items, metrics the method reports about itself, and any tables
+    worth saving with the run."""
     kind, votes, k = cfg.method.target, bundle.train_votes, bundle.num_classes
     extra: dict[str, float] = {}
+    artifacts: dict[str, pd.DataFrame] = {}
     if kind == "clean":
         # The sampled human votes before any injected corruption (AmbiNoise only).
         ts = targets.soft(votes.assign(label=votes["original_label"]), k)
@@ -118,7 +139,7 @@ def make_targets(
         e = votes["is_error"].to_numpy(dtype=float)
         ts = targets.route(votes, k, e, nu=cfg.method.nu, h0=cfg.method.h0)
     elif kind == "triage":
-        ts, extra = _triage_targets(cfg, bundle)
+        ts, extra, artifacts["scored_votes"] = _triage_targets(cfg, bundle)
     elif kind == "harm":
         from labeltriage.harm import harm_targets
 
@@ -133,7 +154,7 @@ def make_targets(
 
         routes = pd.Series(ts.routes, index=ts.item_ids)
         extra["route/ambiguity_recall"] = ambiguity_recall(votes, routes, k, cfg.method.h0)
-    return ts.align(bundle.train_item_ids), extra
+    return ts.align(bundle.train_item_ids), extra, artifacts
 
 
 def coteaching_setting(cfg: DictConfig, bundle: bundles.Bundle) -> tuple[float, int] | None:
@@ -243,7 +264,7 @@ def eval_names(cfg: DictConfig) -> list[str]:
 def train_eval(cfg: DictConfig) -> dict[str, Any]:
     rng = seed_everything(cfg.seed)
     bundle = load_bundle(cfg)
-    ts, method_metrics = make_targets(cfg, bundle, rng)
+    ts, method_metrics, artifacts = make_targets(cfg, bundle, rng)
 
     start = time.perf_counter()
     predict, history, device = TRAINERS[bundle.domain](cfg, bundle, ts)
@@ -260,4 +281,5 @@ def train_eval(cfg: DictConfig) -> dict[str, Any]:
         "train_seconds": train_seconds,
         "device": device,
         "n_train": len(ts),
+        "_artifacts": artifacts,
     }

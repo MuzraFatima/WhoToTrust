@@ -219,3 +219,26 @@ def test_harm_counterfactuals_train(tmp_path, monkeypatch, method):
     monkeypatch.setattr(bundles, "load", lambda name, data_dir: _fake_pool_bundle())
     cfg = _cfg("data=ambinoise_10h", "data.noise.num_annotators=20", f"method={method}")
     assert run.execute(cfg, tmp_path)["n_train"] == 20
+
+
+def test_labeltriage_run_saves_scored_votes_for_the_explorer(tmp_path, monkeypatch):
+    from labeltriage.experiments import features as fx
+    from labeltriage.features import g1_votes, g2_reliability
+
+    monkeypatch.setattr(bundles, "load", lambda name, data_dir: _fake_pool_bundle(n=24))
+
+    def fake_features(cfg, votes):
+        f = pd.concat([g1_votes.compute(votes, 2), g2_reliability.compute(votes, 2)], axis=1)
+        return pd.concat([votes.reset_index(drop=True), f], axis=1)
+
+    monkeypatch.setattr(fx, "build_or_load", fake_features)
+    cfg = _cfg(
+        "data=ambinoise_10h",
+        "data.noise.num_annotators=20",
+        "method=labeltriage",
+        "method.groups=[g1,g2]",
+    )
+    run.execute(cfg, tmp_path)
+    scored = pd.read_parquet(tmp_path / "scored_votes.parquet")
+    assert {"item_id", "p_error", "route", "is_error"} <= set(scored.columns)
+    assert scored["route"].notna().all()
