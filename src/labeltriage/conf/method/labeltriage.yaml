@@ -8,3 +8,11 @@ groups: [g1, g2, g3, g4, g5]
 nu: 1.5              # unreliable if fewer effective votes survive
 h0: 0.3              # clear if cleaned-vote entropy is at most this (nats)
 hard_drop: null      # set to 0.8 for the hard-drop ablation
+# For datasets without error labels (CIFAR-10N): where the triage model is trained instead.
+# K = 3 matches CIFAR-10N's three votes per image. G3 is left out, as for VariErr (A13).
+transfer_source:
+  base: cifar10h
+  k: [3]
+  rate: 0.2
+  error_types: [spammer, swap, lazy, plausible_wrong]
+transfer_groups: [g1, g2, g4, g5]

@@ -1,0 +1,9 @@
+# Two extra seeds for the four headline settings (K = 5, 20%): 72 runs (~5 T4-hours).
+name: main_10h_headline_seeds
+fixed: [experiment=main, stage=final, data=ambinoise_10h, data.noise.k=5, data.noise.rate=0.2]
+axes:
+  data.noise.error_type: [spammer, swap, lazy, plausible_wrong]
+  method:
+    [majority_vote, soft_labels, dawid_skene, crowdlab, confident_learning, coteaching,
+     entropy_weight, oracle, labeltriage]
+  seed: [3, 4]

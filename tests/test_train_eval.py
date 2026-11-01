@@ -190,3 +190,25 @@ def test_coteaching_method_runs(tmp_path, monkeypatch):
     cfg = _cfg("data=ambinoise_10h", "data.noise.num_annotators=20", "method=coteaching")
     result = run.execute(cfg, tmp_path)
     assert result["n_train"] == 20
+
+
+def test_labeltriage_on_real_noise_trains_triage_on_ambinoise(tmp_path, monkeypatch):
+    from labeltriage.experiments import features as fx
+    from labeltriage.features import g1_votes, g2_reliability
+
+    monkeypatch.setattr(bundles, "load", lambda name, data_dir: _fake_pool_bundle(n=24))
+
+    def fake_features(cfg, votes):
+        f = pd.concat([g1_votes.compute(votes, 2), g2_reliability.compute(votes, 2)], axis=1)
+        return pd.concat([votes.reset_index(drop=True), f], axis=1)
+
+    monkeypatch.setattr(fx, "build_or_load", fake_features)
+    cfg = _cfg(
+        "method=labeltriage",
+        "method.transfer_groups=[g1,g2]",
+        "method.transfer_source.error_types=[spammer,swap]",
+    )
+    result = run.execute(cfg, tmp_path)
+    m = result["metrics"]
+    assert 0.0 <= m["triage/mean_p_error"] <= 1.0
+    assert "triage/val_auroc" not in m

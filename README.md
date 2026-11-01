@@ -87,6 +87,8 @@ Each line is one `kaggle_bootstrap.sh <sweep>` call, using sweeps in `src/labelt
 4. `pilot.yaml` and `tune_router.yaml`, then
    `python scripts/preregister.py outputs/pilot_runs.csv --tune outputs/tune_runs.csv`.
    Commit `docs/preregistration.md` and `git tag prereg-v1` **before** any `stage=final` run.
+5. Phase 6: `main_10h.yaml`, `main_10h_headline_seeds.yaml`, `k_sweep.yaml`, `main_nli.yaml`,
+   `cifar10n.yaml`, `transfer_final.yaml`, then `python scripts/analyze.py outputs/grid`.
 
 ## Status
 
@@ -98,6 +100,6 @@ Each line is one `kaggle_bootstrap.sh <sweep>` call, using sweeps in `src/labelt
 | 3 | Feature library | done on NLI; image side pending GPU |
 | 4 | Triage model and router | code done; first VariErr transfer is a miss (see docs/results.md) |
 | 5 | Baselines, pilot, pre-registration | code done; pilot and prereg-v1 tag pending GPU |
-| 6 | Main experiments | — |
+| 6 | Main experiments | grids and analysis ready; runs after prereg-v1 on GPU |
 | 7 | Harm analysis, ablations, explorer | — |
 | 8 | Paper, release, defence | — |

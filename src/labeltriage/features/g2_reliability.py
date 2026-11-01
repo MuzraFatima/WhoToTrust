@@ -1,7 +1,9 @@
 """G2, annotator reliability: errors cluster in annotators who are unreliable elsewhere.
 
 Every statistic about annotator *a* used for a vote on item *i* is computed from votes on items
-in other folds, so the vote being scored never informs its own annotator's reliability.
+in other folds, so the vote being scored never informs its own annotator's reliability. How many
+items an annotator labelled is deliberately not a feature: it describes the annotation design
+(sparse in AmbiNoise, dense in VariErr), not the vote, and it broke transfer (amendment A13).
 """
 
 from __future__ import annotations
@@ -42,7 +44,7 @@ def compute(
 
     out = pd.DataFrame(
         index=v.index,
-        columns=["g2_ds_accuracy", "g2_ds_own_prob", "g2_consensus_agreement", "g2_n_votes"],
+        columns=["g2_ds_accuracy", "g2_ds_own_prob", "g2_consensus_agreement"],
         dtype=float,
     )
     for f in range(n_folds):
@@ -66,7 +68,5 @@ def compute(
         out.loc[score, "g2_consensus_agreement"] = (
             pd.Series(ann[score]).map(agree).fillna(agree.mean()).to_numpy()
         )
-        n = pd.Series(ann[fit]).value_counts()
-        out.loc[score, "g2_n_votes"] = pd.Series(ann[score]).map(n).fillna(0).to_numpy()
 
     return out.astype(float)

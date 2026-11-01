@@ -4,5 +4,8 @@ name: transfer
 task: transfer
 train_k: [3, 5]
 train_error_types: [spammer, swap, lazy, plausible_wrong]
+# G3 is left out of the transfer model: synthetic errors are implausible to the MNLI model in a
+# way real errors are not, so it acts as a shortcut (amendment A13, chosen on the VariErr dev half).
+groups: [g1, g2, g4, g5]
 probe_epochs: 15
 n_boot: 2000

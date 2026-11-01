@@ -1,0 +1,6 @@
+# Final VariErr transfer on the sealed test half (A13), plus the G1-only secondary ablation.
+name: transfer_final
+fixed: [stage=final, method=labeltriage, data=ambinoise_nli]
+axes:
+  experiment: [transfer, transfer_g1]
+  seed: [0]

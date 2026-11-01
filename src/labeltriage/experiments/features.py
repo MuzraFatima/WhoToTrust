@@ -23,8 +23,13 @@ def feature_inputs(cache_dir: str | Path, base: str) -> fb.FeatureInputs:
     )
 
 
+# Bumped whenever a feature group's columns change, so stale cached tables are never reused.
+FEATURE_VERSION = 2
+
+
 def feature_cache_path(cfg: DictConfig) -> Path:
-    return Path(cfg.paths.cache_dir) / "features" / cfg.data.name / f"seed{cfg.seed}.parquet"
+    root = Path(cfg.paths.cache_dir) / f"features_v{FEATURE_VERSION}"
+    return root / cfg.data.name / f"seed{cfg.seed}.parquet"
 
 
 def build_or_load(cfg: DictConfig, votes: pd.DataFrame) -> pd.DataFrame:

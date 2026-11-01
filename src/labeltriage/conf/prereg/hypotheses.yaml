@@ -8,6 +8,8 @@ H1:
   gain_over_entropy_min: 0.10
   gain_over_minority_share_ci_above: 0.0   # A9
   falsified_if: {gain_over_entropy_below: 0.03, varierr_below: 0.60}
+  varierr_split: test half only (A13), transfer model = experiment/transfer.yaml (G3 left out)
+  secondary: [G1-only transfer model on the VariErr test half (A13), with and without G3 on AmbiNoise]
 H2:
   question: Does per-example triage improve generalisation over one global rule?
   metric: clean_test/acc

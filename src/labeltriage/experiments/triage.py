@@ -8,21 +8,23 @@ import numpy as np
 import pandas as pd
 from omegaconf import DictConfig, OmegaConf
 
-from labeltriage.data import prepare
+from labeltriage.data import prepare, splits
 from labeltriage.eval.metrics import auprc, auroc
 from labeltriage.eval.stats import cluster_bootstrap
-from labeltriage.experiments.features import build_or_load, feature_columns, feature_inputs
+from labeltriage.experiments import features as fx
+from labeltriage.experiments.features import feature_columns, feature_inputs
 from labeltriage.experiments.train_eval import load_bundle
 from labeltriage.features import build as fb
 from labeltriage.tasks import task
 from labeltriage.triage.model import TriageModel
 from labeltriage.triage.pipeline import score
+from labeltriage.utils.runs import require_stage
 
 
 @task("triage")
 def triage(cfg: DictConfig) -> dict[str, Any]:
     """Gate: calibrated val AUROC >= 0.80 and calibration error < 0.05."""
-    table = build_or_load(cfg, load_bundle(cfg).votes)
+    table = fx.build_or_load(cfg, load_bundle(cfg).votes)
     cols = feature_columns(table)
     res = score(table, cols, kind=cfg.method.get("model", "lgbm"), seed=cfg.seed)
     m = res.metrics
@@ -46,8 +48,50 @@ def training_table(cfg: DictConfig) -> pd.DataFrame:
             c = OmegaConf.create(OmegaConf.to_container(cfg, resolve=False))
             c.data.noise.k = int(k)
             c.data.noise.error_type = str(etype)
-            parts.append(build_or_load(c, load_bundle(c).votes).assign(draw=f"k{k}_{etype}"))
+            parts.append(fx.build_or_load(c, load_bundle(c).votes).assign(draw=f"k{k}_{etype}"))
     return pd.concat(parts, ignore_index=True)
+
+
+def source_cfg(cfg: DictConfig, base: str, k: int, rate: float, etype: str) -> DictConfig:
+    """A copy of ``cfg`` whose data section is an AmbiNoise draw over ``base``.
+
+    Lets a run on a dataset without error labels (CIFAR-10N) build its triage model from
+    AmbiNoise without composing a second Hydra config inside a running job.
+    """
+    c = OmegaConf.create(OmegaConf.to_container(cfg, resolve=True))
+    prefix = {"cifar10h": "ambinoise_10h", "chaosnli": "ambinoise_nli"}[base]
+    c.data.base = base
+    c.data.name = f"{prefix}_k{k}_r{rate}_{etype}"
+    c.data.noise = {
+        "k": int(k),
+        "rate": float(rate),
+        "error_type": etype,
+        "num_annotators": 200,
+        "concentration": 2.0,
+        "native_cutoff": 0.10,
+        "seed": int(cfg.seed),
+        "ranking_path": f"{cfg.paths.cache_dir}/injection/{base}.parquet",
+    }
+    return c
+
+
+def source_model(cfg: DictConfig, columns: list[str]) -> TriageModel:
+    """Triage model trained on AmbiNoise draws named by ``method.transfer_source``."""
+    src = cfg.method.transfer_source
+    parts = []
+    for k in src.k:
+        for etype in src.error_types:
+            c = source_cfg(cfg, src.base, k, src.rate, etype)
+            parts.append(fx.build_or_load(c, load_bundle(c).votes))
+    table = pd.concat(parts, ignore_index=True)
+    y = table["is_error"].to_numpy(dtype=bool)
+    train = (table["split"] == "train").to_numpy()
+    val = (table["split"] == "val").to_numpy()
+    return (
+        TriageModel(columns, cfg.method.get("model", "lgbm"), cfg.seed)
+        .fit(table[train], y[train])
+        .calibrate(table[val], y[val])
+    )
 
 
 def pair_scores(votes: pd.DataFrame, p: np.ndarray) -> pd.DataFrame:
@@ -60,9 +104,13 @@ def pair_scores(votes: pd.DataFrame, p: np.ndarray) -> pd.DataFrame:
 
 @task("transfer")
 def transfer(cfg: DictConfig) -> dict[str, Any]:
-    """Train on AmbiNoise-NLI, score VariErr without ever training or tuning on it."""
+    """Train on AmbiNoise-NLI and score VariErr, which is never trained on.
+
+    Only the dev half informs design choices (A13). The test half is reported with stage=final.
+    """
     table = training_table(cfg)
-    cols = feature_columns(table)
+    groups = tuple(cfg.experiment.get("groups", fb.GROUPS))
+    cols = [c for c in feature_columns(table) if c.split("_")[0] in groups]
     y = table["is_error"].to_numpy(dtype=bool)
     train = (table["split"] == "train").to_numpy()
     val = (table["split"] == "val").to_numpy()
@@ -77,7 +125,7 @@ def transfer(cfg: DictConfig) -> dict[str, Any]:
         v,
         3,
         feature_inputs(cfg.paths.cache_dir, "varierr"),
-        groups=tuple(cfg.experiment.get("groups", fb.GROUPS)),
+        groups=groups,
         seed=cfg.seed,
         probe_epochs=cfg.experiment.get("probe_epochs", 15),
     )
@@ -85,27 +133,37 @@ def transfer(cfg: DictConfig) -> dict[str, Any]:
     pairs = pair_scores(vt, model.predict(vt[cols]))
     pairs["entropy"] = pair_scores(vt, vt["g1_entropy"].to_numpy())["p"]
     pairs["minority"] = pair_scores(vt, -vt["g1_share"].to_numpy())["p"]
+    pairs["split"] = pairs["item_id"].map(splits.load_split("varierr"))
+
+    # Amendment A13: the dev half may guide design; the test half opens only with stage=final.
+    metrics: dict[str, float] = {}
+    halves = {"dev": "val"} | ({"test": "test"} if cfg.stage == "final" else {})
+    for name, split in halves.items():
+        require_stage(cfg.stage, split)
+        metrics |= transfer_metrics(
+            pairs[pairs["split"] == split], f"transfer/{name}_", cfg.experiment.n_boot, cfg.seed
+        )
+    return {
+        "metrics": metrics,
+        "n_pairs": {k: int((pairs["split"] == v).sum()) for k, v in halves.items()},
+        "train_votes": int(train.sum()),
+    }
+
+
+def transfer_metrics(pairs: pd.DataFrame, prefix: str, n_boot: int, seed: int) -> dict[str, float]:
     err = pairs["is_error"].to_numpy(dtype=bool)
+    p, minority = pairs["p"].to_numpy(), pairs["minority"].to_numpy()
 
     def diff(idx: np.ndarray) -> float:
-        return auroc(err[idx], pairs["p"].to_numpy()[idx]) - auroc(
-            err[idx], pairs["minority"].to_numpy()[idx]
-        )
+        return auroc(err[idx], p[idx]) - auroc(err[idx], minority[idx])
 
-    d, lo, hi = cluster_bootstrap(
-        diff, pairs["item_id"].to_numpy(), cfg.experiment.n_boot, cfg.seed
-    )
+    d, lo, hi = cluster_bootstrap(diff, pairs["item_id"].to_numpy(), n_boot, seed)
     return {
-        "metrics": {
-            "transfer/auroc": auroc(err, pairs["p"]),
-            "transfer/auprc": auprc(err, pairs["p"]),
-            "transfer/entropy_only": auroc(err, pairs["entropy"]),
-            "transfer/minority_share_only": auroc(err, pairs["minority"]),
-            "transfer/gain_over_minority": d,
-            "transfer/gain_over_minority_lo": lo,
-            "transfer/gain_over_minority_hi": hi,
-        },
-        "n_pairs": len(pairs),
-        "n_errors": int(err.sum()),
-        "train_votes": int(train.sum()),
+        f"{prefix}auroc": auroc(err, p),
+        f"{prefix}auprc": auprc(err, p),
+        f"{prefix}entropy_only": auroc(err, pairs["entropy"]),
+        f"{prefix}minority_share_only": auroc(err, minority),
+        f"{prefix}gain_over_minority": d,
+        f"{prefix}gain_over_minority_lo": lo,
+        f"{prefix}gain_over_minority_hi": hi,
     }

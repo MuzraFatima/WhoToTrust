@@ -65,6 +65,17 @@ than simply counting votes. The method has **not** been changed in response, so 
 an untouched test. Caveats: plausible-wrong errors (the type built to resemble real errors) are
 not yet in the training mix, and ChaosNLI is still the MNLI-only mirror.
 
+## VariErr dev half after amendment A13 (250 items, 445 item–label pairs)
+
+| Transfer model | Dev AUROC | − minority share (95% CI) |
+|---|---|---|
+| Phase 4 model (all groups) | 0.596 | −0.261 [−0.337, −0.182] |
+| **Variant B: no `g2_n_votes`, no G3** | **0.756** | **−0.102 [−0.155, −0.044]** |
+| Untrained minority share | 0.857 | — |
+
+Variant B clears H1's 0.70 VariErr target on dev but still trails plain vote counting. The test
+half stays sealed until `stage=final`.
+
 ## Early VariErr signal (no training on VariErr)
 
 | Untrained score | AUROC on official error labels (878 item–label pairs, 129 errors) |

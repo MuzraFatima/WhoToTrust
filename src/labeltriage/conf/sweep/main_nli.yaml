@@ -1,0 +1,10 @@
+# AmbiNoise-NLI: 9 methods x 6 settings (3 error types x 2 rates) x 3 seeds = 162 runs (~11 T4-hours).
+name: main_nli
+fixed: [experiment=main, stage=final, data=ambinoise_nli, data.noise.k=5]
+axes:
+  data.noise.error_type: [spammer, swap, plausible_wrong]
+  data.noise.rate: [0.2, 0.4]
+  method:
+    [majority_vote, soft_labels, dawid_skene, crowdlab, confident_learning, coteaching,
+     entropy_weight, oracle, labeltriage]
+  seed: [0, 1, 2]
