@@ -13,11 +13,11 @@ heading must be filled in first. Until the tag exists, no `stage=final` run may 
 - The code at the tagged commit. `scripts/analyze.py` checks that every final run was produced
   under these frozen hypotheses.
 
-## Tier 1 scope (about 23 GPU-hours)
+## Tier 1 scope (about 23–24 GPU-hours)
 
 | Step | Session | Sweep | Runs | Est. GPU-h | Serves |
 |---|---|---|---|---|---|
-| 1 | S1 | `t1_s1_reproduce` | 4 | 0.3 | per-run cost check |
+| 1 | S1 | `t1_s1_reproduce`, then the GPU smoke test | 4 + 13 steps | 0.3 + ~0.6 | per-run cost check; every GPU code path once |
 | 2 | S2 | `injection`, then `t1_s2_embed` | 2 + 3 | 0.9 | A1; features for H1 |
 | 3 | S3 | `t1_s3_oracle_gate` | 24 | 1.6 | Phase 2 gate |
 | 4 | S2 | `features_gate`, `triage_gate`, `t1_s2_transfer_dev` | 8 + 8 + 1 | ~0 (CPU) | Phase 3–4 gates; VariErr dev re-measure |
