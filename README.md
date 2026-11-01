@@ -78,35 +78,45 @@ in a browser and put `chaosNLI_snli.jsonl` and `chaosNLI_mnli_m.jsonl` in `data/
 `chaosNLI_alphanli.jsonl` is a different task and is not used. Without the official files, an
 MNLI-only mirror is used, with a warning.
 
-## Running on Kaggle
+## Running on Kaggle: Tier 1 run order
 
-In a GPU notebook (T4), with internet switched on:
+Tier 1 (about 23 GPU-hours) is the approved minimum that supports H1–H4. Its scope and cut
+order are in [`docs/prereg-v1.md`](docs/prereg-v1.md); Tier 2 waits.
+
+**One-time setup.** Create a Kaggle notebook with a T4 GPU and internet on. Upload
+`chaosNLI_snli.jsonl` and `chaosNLI_mnli_m.jsonl` as a Kaggle dataset named `chaosnli`. In each
+session, run:
 
 ```bash
 !curl -sSLO https://raw.githubusercontent.com/MuzraFatima/WhoToTrust/main/scripts/kaggle_bootstrap.sh
-!CHAOSNLI_DIR=/kaggle/input/chaosnli bash kaggle_bootstrap.sh src/labeltriage/conf/sweep/reproduce.yaml
+!CHAOSNLI_DIR=/kaggle/input/chaosnli RESUME_FROM=/kaggle/input/<previous-session-output>   bash kaggle_bootstrap.sh src/labeltriage/conf/sweep/<sweep>.yaml
 ```
 
-Then, for Phase 2, run `sweep/injection.yaml` (writes the plausible-wrong ranking) followed by
-`sweep/oracle_gate.yaml` the same way.
+Leave out `RESUME_FROM` in session 1. From session 2 on, attach the previous session's saved
+output as an input and point `RESUME_FROM` at it, so finished runs and caches carry over.
 
-The first command prepares the data, runs the Phase 1 reproduction (majority vote vs soft labels on every
-dataset, one seed) and prints a summary with `train_seconds` per run for the compute check.
+**Every session ends the same way:** "Save Version" (so `outputs/` and `cache/` survive), then
+**turn the session off** (Run → Stop session) so it stops using GPU quota. Each sweep is
+resumable: if a session dies or prints `TIME BUDGET REACHED`, run the same command again in a
+new session with `RESUME_FROM`. Finished runs are skipped. Each session is sized to stay under
+8 hours (`MAX_HOURS=8`, inside Kaggle's 12-hour limit).
 
-## GPU run order
+| Session | Sweeps, in order | Est. GPU-h | Then |
+|---|---|---|---|
+| **S1** | `t1_s1_reproduce` | 0.3 | **Stop. Report the measured `train_seconds` per run** (in `outputs/summary_runs.csv`) before continuing. |
+| S2 | `injection`, `t1_s2_embed`, `features_gate`, `triage_gate`, `t1_s2_transfer_dev` | ~1 + CPU | **Report `transfer/dev_auroc`** (the VariErr dev re-measure with plausible-wrong errors). |
+| S3 | `t1_s3_oracle_gate`, `t1_s3_pilot`, `tune_router` | 5.0 | Run `python scripts/preregister.py outputs/summary_runs.csv --tune outputs/summary_runs.csv`, fill every "to fill" in `docs/prereg-v1.md`, commit. **The owner reads it and tags `prereg-v1`.** |
+| S4 | `t1_s4_main_core` with `SHARD=1/2` | 4.8 | — |
+| S5 | `t1_s4_main_core` with `SHARD=2/2` | 4.8 | — |
+| S6 | `t1_s6_headline_seeds`, `t1_s6_strong_baselines`, `harm`, `transfer_final` | 6.9 | `python scripts/analyze.py outputs/grid`, `python scripts/misrouting.py outputs/grid` |
 
-Each line is one `kaggle_bootstrap.sh <sweep>` call, using sweeps in `src/labeltriage/conf/sweep/`:
+**The 1.5× rule.** The plan assumes about 240 s per CIFAR-10H run and about 240 s per ChaosNLI
+run. If session 1 measures more than 1.5× that (360 s) for either, **stop and replan before
+session 2**. Cuts follow the order in `docs/prereg-v1.md`: step 9 first, then the pilot's
+second seed. The same rule applies to any later session that runs more than 1.5× over its
+estimate.
 
-1. `reproduce.yaml`: Phase 1 baselines and compute check
-2. `injection.yaml`, then `embed.yaml`: frozen-model caches for plausible-wrong errors and features
-3. `oracle_gate.yaml`, `features_gate.yaml`, `triage_gate.yaml`: Phase 2–4 gates
-4. `pilot.yaml` and `tune_router.yaml`, then
-   `python scripts/preregister.py outputs/pilot_runs.csv --tune outputs/tune_runs.csv`.
-   Commit `docs/preregistration.md` and `git tag prereg-v1` **before** any `stage=final` run.
-5. Phase 6: `main_10h.yaml`, `main_10h_headline_seeds.yaml`, `k_sweep.yaml`, `main_nli.yaml`,
-   `cifar10n.yaml`, `transfer_final.yaml`.
-6. Phase 7: `harm.yaml`, `ablations.yaml`, `ablation_backbone.yaml`, then
-   `python scripts/analyze.py outputs/grid` and `python scripts/misrouting.py outputs/grid`.
+Nothing with `stage=final` (sessions S4–S6) may start before the `prereg-v1` tag exists.
 
 ## Disagreement Explorer
 
@@ -128,7 +138,7 @@ votes, and plain-language reasons for each vote's score.
 | 2 | AmbiNoise benchmark | code done; injection model and oracle gate pending GPU |
 | 3 | Feature library | done on NLI; image side pending GPU |
 | 4 | Triage model and router | code done; first VariErr transfer is a miss (see docs/results.md) |
-| 5 | Baselines, pilot, pre-registration | code done; pilot and prereg-v1 tag pending GPU |
+| 5 | Baselines, pilot, pre-registration | code done; Tier 1 plan in docs/prereg-v1.md, tag pending |
 | 6 | Main experiments | grids and analysis ready; runs after prereg-v1 on GPU |
 | 7 | Harm analysis, ablations, explorer | code done; runs after prereg-v1 on GPU |
 | 8 | Paper, release, defence | release tooling, repro script and paper draft done; final numbers pending GPU |

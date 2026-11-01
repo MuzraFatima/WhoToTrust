@@ -1,0 +1,7 @@
+# TIER 1, SESSION 6 (~2.1 GPU-h): seeds 3 and 4 in the H2 main setting (5 seeds in total).
+name: t1_s6_headline_seeds
+fixed: [experiment=main, stage=final, data=ambinoise_10h, data.noise.k=5, data.noise.rate=0.2]
+axes:
+  data.noise.error_type: [spammer, swap, lazy, plausible_wrong]
+  method: [majority_vote, soft_labels, oracle, labeltriage]
+  seed: [3, 4]

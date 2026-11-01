@@ -1,0 +1,7 @@
+# TIER 1, SESSION 2: VariErr dev-half re-measure with the pre-declared training mix, now
+# including plausible-wrong errors (A14). Dev stage: the sealed test half is not touched.
+# Report transfer/dev_auroc before the prereg-v1 tag.
+name: t1_s2_transfer_dev
+fixed: [experiment=transfer, method=labeltriage, data=ambinoise_nli, stage=dev]
+axes:
+  seed: [0]

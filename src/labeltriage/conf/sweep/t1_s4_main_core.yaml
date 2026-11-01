@@ -1,0 +1,9 @@
+# TIER 1, SESSIONS 4-5 (~9.6 GPU-h, run as SHARD=1/2 then SHARD=2/2, ~4.8 h each).
+# H1 (AmbiNoise detection), H2 and H4. stage=final: only after the prereg-v1 tag.
+name: t1_s4_main_core
+fixed: [experiment=main, stage=final, data=ambinoise_10h, data.noise.k=5]
+axes:
+  data.noise.error_type: [spammer, swap, lazy, plausible_wrong]
+  data.noise.rate: [0.1, 0.2, 0.4]
+  method: [majority_vote, soft_labels, oracle, labeltriage]
+  seed: [0, 1, 2]
