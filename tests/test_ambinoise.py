@@ -115,3 +115,19 @@ def test_split_column_is_carried_through():
 def test_items_with_too_few_votes_are_rejected():
     with pytest.raises(ValueError, match="fewer than K"):
         inject(_pool(votes=3), 10, NoiseSpec(k=5))
+
+
+def test_sampler_reproduces_the_clean_pool_on_average():
+    from labeltriage.ambinoise import checks
+
+    kl = checks.sampling_kl(_pool(n_items=60), 10, k=5, draws=20)
+    assert kl.median() < 0.05
+
+
+def test_summary_reports_error_shares():
+    from labeltriage.ambinoise import checks
+
+    out = inject(_pool(), 10, NoiseSpec(rate=0.2))
+    s = checks.summarise(out)
+    assert s["share_spammer"] == pytest.approx(0.2, abs=0.01)
+    assert s["items"] == 300
