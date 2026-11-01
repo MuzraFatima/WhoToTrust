@@ -1,0 +1,9 @@
+# Frozen-model outputs for feature groups G3-G5 (one run per base dataset).
+name: embed
+task: embed
+models:
+  clip: openai/clip-vit-base-patch32
+  dinov2: facebook/dinov2-small
+  mnli: FacebookAI/roberta-large-mnli
+  sentence: sentence-transformers/all-MiniLM-L6-v2
+  batch_size: 64
