@@ -77,6 +77,17 @@ Then, for Phase 2, run `sweep/injection.yaml` (writes the plausible-wrong rankin
 The first command prepares the data, runs the Phase 1 reproduction (majority vote vs soft labels on every
 dataset, one seed) and prints a summary with `train_seconds` per run for the compute check.
 
+## GPU run order
+
+Each line is one `kaggle_bootstrap.sh <sweep>` call, using sweeps in `src/labeltriage/conf/sweep/`:
+
+1. `reproduce.yaml`: Phase 1 baselines and compute check
+2. `injection.yaml`, then `embed.yaml`: frozen-model caches for plausible-wrong errors and features
+3. `oracle_gate.yaml`, `features_gate.yaml`, `triage_gate.yaml`: Phase 2–4 gates
+4. `pilot.yaml` and `tune_router.yaml`, then
+   `python scripts/preregister.py outputs/pilot_runs.csv --tune outputs/tune_runs.csv`.
+   Commit `docs/preregistration.md` and `git tag prereg-v1` **before** any `stage=final` run.
+
 ## Status
 
 | Phase | Scope | State |
@@ -86,7 +97,7 @@ dataset, one seed) and prints a summary with `train_seconds` per run for the com
 | 2 | AmbiNoise benchmark | code done; injection model and oracle gate pending GPU |
 | 3 | Feature library | done on NLI; image side pending GPU |
 | 4 | Triage model and router | code done; first VariErr transfer is a miss (see docs/results.md) |
-| 5 | Baselines, pilot, pre-registration | — |
+| 5 | Baselines, pilot, pre-registration | code done; pilot and prereg-v1 tag pending GPU |
 | 6 | Main experiments | — |
 | 7 | Harm analysis, ablations, explorer | — |
 | 8 | Paper, release, defence | — |
