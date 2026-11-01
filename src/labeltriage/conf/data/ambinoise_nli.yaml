@@ -1,0 +1,16 @@
+# AmbiNoise-NLI: ChaosNLI votes (VariErr items removed) with injected errors.
+defaults:
+  - chaosnli
+  - _self_
+
+base: chaosnli
+name: ambinoise_nli_k${data.noise.k}_r${data.noise.rate}_${data.noise.error_type}
+noise:
+  k: 5
+  rate: 0.2
+  error_type: spammer
+  num_annotators: 200
+  concentration: 2.0
+  native_cutoff: 0.10
+  seed: ${seed}
+  ranking_path: ${paths.cache_dir}/injection/chaosnli.parquet

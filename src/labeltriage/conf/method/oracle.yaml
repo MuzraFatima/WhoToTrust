@@ -1,0 +1,5 @@
+# Router fed the true error labels: the upper bound for any triage method.
+name: oracle
+target: oracle
+nu: 1.5
+h0: 0.3

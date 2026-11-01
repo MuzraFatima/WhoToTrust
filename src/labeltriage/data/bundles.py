@@ -6,6 +6,7 @@ Evaluation sets are built lazily and each declares which split it reads, so the 
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -39,6 +40,11 @@ class Bundle:
     train_item_ids: np.ndarray
     train_votes: pd.DataFrame
     evals: dict[str, EvalSpec] = field(default_factory=dict)
+    # Train and val votes together (never test votes), with a split column. Triage tuning uses the
+    # val part.
+    votes: pd.DataFrame | None = None
+    # Inputs for any item of the base dataset, in the order of the IDs given.
+    inputs_for: Callable[[np.ndarray], Any] | None = None
 
     def eval_set(self, name: str, stage: str) -> EvalSet:
         spec = self.evals[name]
@@ -64,6 +70,14 @@ class LazyArray:
 def _split_votes(votes: pd.DataFrame, items: pd.DataFrame, split: str):
     ids = items.index[items["split"] == split].to_numpy()
     return ids, votes[votes["item_id"].isin(set(ids))]
+
+
+def _dev_votes(votes: pd.DataFrame) -> pd.DataFrame:
+    return votes[votes["split"].isin(["train", "val"])].reset_index(drop=True)
+
+
+def _pairs(items: pd.DataFrame, ids) -> tuple[list[str], list[str]]:
+    return items.loc[ids, "premise"].tolist(), items.loc[ids, "hypothesis"].tolist()
 
 
 def _human(votes: pd.DataFrame, item_ids: np.ndarray, num_classes: int) -> np.ndarray:
@@ -108,14 +122,17 @@ def cifar10h(data_dir: str | Path) -> Bundle:
 
     train_ids, train_votes = _split_votes(votes, items, "train")
 
+    def inputs_for(ids) -> np.ndarray:
+        return test_images()[items.loc[ids, "image_index"].to_numpy()]
+
     return Bundle(
         domain="image",
         num_classes=k,
-        train_inputs=LazyArray(
-            lambda: test_images()[items.loc[train_ids, "image_index"].to_numpy()], len(train_ids)
-        ),
+        train_inputs=LazyArray(lambda: inputs_for(train_ids), len(train_ids)),
         train_item_ids=train_ids,
         train_votes=train_votes,
+        votes=_dev_votes(votes),
+        inputs_for=inputs_for,
         evals={
             "val": EvalSpec("val", human_set("val")),
             "clean_dev": EvalSpec("val", lambda: _clean_cifar10_train(data_dir, "val")),
@@ -145,6 +162,8 @@ def cifar10n(data_dir: str | Path) -> Bundle:
         train_inputs=x_train[items.loc[train_ids, "image_index"].to_numpy()],
         train_item_ids=train_ids,
         train_votes=train_votes,
+        votes=_dev_votes(votes),
+        inputs_for=lambda ids: x_train[items.loc[ids, "image_index"].to_numpy()],
         evals={
             "val": EvalSpec("val", val),
             "cifar10_test": EvalSpec(
@@ -163,8 +182,7 @@ def chaosnli(data_dir: str | Path) -> Bundle:
         def build() -> EvalSet:
             ids, v = _split_votes(votes, items, split)
             human = _human(v, ids, k)
-            pairs = (items.loc[ids, "premise"].tolist(), items.loc[ids, "hypothesis"].tolist())
-            return EvalSet(pairs, human.argmax(1), human)
+            return EvalSet(_pairs(items, ids), human.argmax(1), human)
 
         return build
 
@@ -172,14 +190,25 @@ def chaosnli(data_dir: str | Path) -> Bundle:
     return Bundle(
         domain="text",
         num_classes=k,
-        train_inputs=(
-            items.loc[train_ids, "premise"].tolist(),
-            items.loc[train_ids, "hypothesis"].tolist(),
-        ),
+        train_inputs=_pairs(items, train_ids),
         train_item_ids=train_ids,
         train_votes=train_votes,
+        votes=_dev_votes(votes),
+        inputs_for=lambda ids: _pairs(items, ids),
         evals={"val": EvalSpec("val", text_set("val")), "test": EvalSpec("test", text_set("test"))},
     )
+
+
+def ambinoise(base: Bundle, spec, ranking: pd.DataFrame | None = None) -> Bundle:
+    """Replace a base bundle's train and val votes with an AmbiNoise draw over them.
+
+    Evaluation sets are untouched: they score against clean labels and full human distributions.
+    """
+    from labeltriage.ambinoise.injector import inject
+
+    noisy = inject(base.votes, base.num_classes, spec, ranking)
+    train = noisy[noisy["item_id"].isin(set(base.train_item_ids))].reset_index(drop=True)
+    return dataclasses.replace(base, train_votes=train, votes=noisy)
 
 
 LOADERS: dict[str, Callable[[str | Path], Bundle]] = {

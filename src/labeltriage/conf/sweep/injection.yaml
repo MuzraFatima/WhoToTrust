@@ -1,0 +1,6 @@
+# Run once before any plausible-wrong AmbiNoise run: writes cache/injection/<base>.parquet.
+name: injection
+fixed: [experiment=injection, method=majority_vote]
+axes:
+  data: [cifar10h, chaosnli]
+  seed: [0]

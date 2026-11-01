@@ -1,0 +1,16 @@
+# AmbiNoise-10H: CIFAR-10H votes with K sampled annotators and one injected error process.
+defaults:
+  - cifar10h
+  - _self_
+
+base: cifar10h
+name: ambinoise_10h_k${data.noise.k}_r${data.noise.rate}_${data.noise.error_type}
+noise:
+  k: 5
+  rate: 0.2
+  error_type: spammer
+  num_annotators: 200
+  concentration: 2.0
+  native_cutoff: 0.10
+  seed: ${seed}
+  ranking_path: ${paths.cache_dir}/injection/cifar10h.parquet

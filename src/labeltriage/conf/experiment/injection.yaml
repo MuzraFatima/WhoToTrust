@@ -1,0 +1,7 @@
+# Amendment A1: cross-fitted injection model for plausible-wrong errors.
+name: injection
+task: injection_model
+injection:
+  folds: 5
+  seed: 10000
+  text_model: microsoft/deberta-v3-small

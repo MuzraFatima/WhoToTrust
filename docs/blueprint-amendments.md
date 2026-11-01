@@ -125,6 +125,20 @@ only). The split is committed as `conf/splits/cifar10_train_clean.csv`. Clean-te
 CIFAR-10-C, the CIFAR-10 test set (for CIFAR-10N models) and the 2,000 held-out CIFAR-10H images
 are all test-only.
 
+## A8. The AmbiNoise distribution check is defined on the sampler
+
+**Gap.** The Phase 2 gate asks that "the clean votes' distribution stays close to the full-pool
+distribution (median KL under 0.05)". Read per realisation, this cannot hold: five votes can never
+reproduce a 50-vote distribution, and KL is infinite whenever a pool class is not drawn.
+
+**Amendment.** The check is on the sampler, not on one draw. For each item, the clean (non-native,
+uncorrupted) votes are averaged over 20 independent AmbiNoise draws at K = 5, and compared with the
+item's full-pool distribution after native-error classes are removed. KL uses 1e-3 smoothing,
+and the gate is a median below 0.05.
+
+**Measured.** Median KL is 0.0001 on CIFAR-10H and 0.003 on ChaosNLI (90th percentiles 0.0001 and
+0.016), so the sampler passes.
+
 ## Budget impact
 
 A1 adds about 0.5 GPU-hours. A4 brings G5 well under its original line, and its four headline

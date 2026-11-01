@@ -49,3 +49,40 @@ def test_align_reorders_and_rejects_missing():
     np.testing.assert_array_equal(ts.targets.argmax(1), [2, 0])
     with pytest.raises(KeyError, match="no target"):
         targets.soft(v, 3).align(["z"])
+
+
+def test_router_sends_items_down_each_route():
+    v = _votes(
+        [("clear", u, 0) for u in "abcd"]
+        + [("amb", "a", 0), ("amb", "b", 0), ("amb", "c", 1), ("amb", "d", 1)]
+        + [("unrel", "a", 0), ("unrel", "b", 1)]
+    )
+    e = np.where(v["item_id"] == "unrel", 0.6, 0.0)
+    ts = targets.route(v, 2, e)
+    by = dict(zip(ts.item_ids, ts.routes, strict=True))
+    assert by == {"amb": "ambiguous", "clear": "clear", "unrel": "unreliable"}
+    t = dict(zip(ts.item_ids, ts.targets.tolist(), strict=True))
+    assert t["clear"] == [1.0, 0.0]
+    assert t["amb"] == [0.5, 0.5]
+    w = dict(zip(ts.item_ids, ts.weights, strict=True))
+    assert w["unrel"] == pytest.approx(0.8 / 2)
+
+
+def test_oracle_routing_removes_known_errors():
+    v = _votes([("x", "a", 2), ("x", "b", 2), ("x", "c", 2), ("x", "d", 0)])
+    ts = targets.route(v, 3, np.array([0, 0, 0, 1]))
+    assert ts.routes.tolist() == ["clear"]
+    assert ts.targets.tolist() == [[0.0, 0.0, 1.0]]
+
+
+def test_all_votes_dropped_gives_zero_weight_uniform_target():
+    v = _votes([("x", "a", 0), ("x", "b", 1)])
+    ts = targets.route(v, 2, np.array([0.95, 0.95]), hard_drop=0.8)
+    assert ts.weights.tolist() == [0.0]
+    assert ts.targets.tolist() == [[0.5, 0.5]]
+
+
+def test_routes_survive_align():
+    v = _votes([("b", "1", 1), ("a", "1", 0)])
+    ts = targets.route(v, 2, np.zeros(2), nu=0.5).align(["b", "a"])
+    assert ts.routes.tolist() == ["clear", "clear"]

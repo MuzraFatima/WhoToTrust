@@ -71,7 +71,10 @@ In a GPU notebook (T4), with internet switched on:
 !CHAOSNLI_ZIP=/kaggle/input/chaosnli/chaosNLI_v1.0.zip bash kaggle_bootstrap.sh src/labeltriage/conf/sweep/reproduce.yaml
 ```
 
-This prepares the data, runs the Phase 1 reproduction (majority vote vs soft labels on every
+Then, for Phase 2, run `sweep/injection.yaml` (writes the plausible-wrong ranking) followed by
+`sweep/oracle_gate.yaml` the same way.
+
+The first command prepares the data, runs the Phase 1 reproduction (majority vote vs soft labels on every
 dataset, one seed) and prints a summary with `train_seconds` per run for the compute check.
 
 ## Status
@@ -80,7 +83,7 @@ dataset, one seed) and prints a summary with `train_seconds` per run for the com
 |---|---|---|
 | 0 | Repo, CI, configs, run plumbing | done |
 | 1 | Data loaders, trainer, evaluation, baseline reproduction | code done; GPU numbers pending |
-| 2 | AmbiNoise benchmark | — |
+| 2 | AmbiNoise benchmark | code done; injection model and oracle gate pending GPU |
 | 3 | Feature library | — |
 | 4 | Triage model and router | — |
 | 5 | Baselines, pilot, pre-registration | — |

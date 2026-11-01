@@ -10,6 +10,7 @@ from collections.abc import Callable
 from typing import Any
 
 import numpy as np
+import pandas as pd
 from omegaconf import DictConfig
 
 from labeltriage import targets
@@ -21,8 +22,41 @@ from labeltriage.utils.seed import seed_everything
 Predictor = Callable[[Any], np.ndarray]
 
 
+def load_bundle(cfg: DictConfig) -> bundles.Bundle:
+    """The base dataset's bundle, with an AmbiNoise draw applied when ``data.noise`` is set."""
+    bundle = bundles.load(cfg.data.get("base", cfg.data.name), cfg.paths.data_dir)
+    noise = cfg.data.get("noise")
+    if noise is None:
+        return bundle
+
+    from labeltriage.ambinoise.injector import NoiseSpec
+
+    spec = NoiseSpec(
+        k=noise.k,
+        rate=noise.rate,
+        error_type=noise.error_type,
+        num_annotators=noise.num_annotators,
+        concentration=noise.concentration,
+        native_cutoff=noise.native_cutoff,
+        seed=noise.seed,
+    )
+    ranking = None
+    if spec.error_type == "plausible_wrong":
+        ranking = pd.read_parquet(noise.ranking_path)
+        ranking.columns = ranking.columns.astype(int)
+    return bundles.ambinoise(bundle, spec, ranking)
+
+
 def make_targets(cfg: DictConfig, bundle: bundles.Bundle, rng: np.random.Generator):
-    ts = targets.build(cfg.method.target, bundle.train_votes, bundle.num_classes, rng)
+    kind, votes, k = cfg.method.target, bundle.train_votes, bundle.num_classes
+    if kind == "clean":
+        # The sampled human votes before any injected corruption (AmbiNoise only).
+        ts = targets.soft(votes.assign(label=votes["original_label"]), k)
+    elif kind == "oracle":
+        e = votes["is_error"].to_numpy(dtype=float)
+        ts = targets.route(votes, k, e, nu=cfg.method.nu, h0=cfg.method.h0)
+    else:
+        ts = targets.build(kind, votes, k, rng)
     return ts.align(bundle.train_item_ids)
 
 
@@ -109,15 +143,20 @@ def eval_names(cfg: DictConfig) -> list[str]:
 @task("train_eval")
 def train_eval(cfg: DictConfig) -> dict[str, Any]:
     rng = seed_everything(cfg.seed)
-    bundle = bundles.load(cfg.data.name, cfg.paths.data_dir)
+    bundle = load_bundle(cfg)
     ts = make_targets(cfg, bundle, rng)
 
     start = time.perf_counter()
     predict, history, device = TRAINERS[bundle.domain](cfg, bundle, ts)
     train_seconds = time.perf_counter() - start
 
+    routes = {}
+    if ts.routes is not None:
+        names, counts = np.unique(ts.routes, return_counts=True)
+        routes = {f"route/{n}": float(c / len(ts)) for n, c in zip(names, counts, strict=True)}
+
     return {
-        "metrics": evaluate(predict, bundle, eval_names(cfg), cfg.stage),
+        "metrics": evaluate(predict, bundle, eval_names(cfg), cfg.stage) | routes,
         "history": history,
         "train_seconds": train_seconds,
         "device": device,
