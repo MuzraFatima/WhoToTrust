@@ -20,7 +20,7 @@ from omegaconf import DictConfig, OmegaConf
 from labeltriage import crossfit, targets
 from labeltriage.data import bundles, download, prepare
 from labeltriage.eval import metrics
-from labeltriage.experiments.train_eval import TRAINERS
+from labeltriage.experiments.train_eval import trainer
 from labeltriage.tasks import task
 
 
@@ -31,9 +31,10 @@ def ranking_path(cfg: DictConfig, base: str) -> Path:
 @task("injection_model")
 def injection_model(cfg: DictConfig) -> dict[str, Any]:
     base = cfg.data.get("base", cfg.data.name)
-    votes, items, meta = prepare.load_prepared(base, cfg.paths.data_dir)
+    subset = cfg.data.get("subset")
+    votes, items, meta = prepare.load_prepared(base, cfg.paths.data_dir, subset)
     k = len(meta["classes"])
-    bundle = bundles.load(base, cfg.paths.data_dir)
+    bundle = bundles.load(base, cfg.paths.data_dir, subset)
     inj = cfg.experiment.injection
 
     ts = targets.majority(votes, k, np.random.default_rng(inj.seed))
@@ -51,7 +52,7 @@ def injection_model(cfg: DictConfig) -> dict[str, Any]:
             train_item_ids=ids[train],
             train_votes=votes[votes["item_id"].isin(set(ids[train]))],
         )
-        predict, _, _ = TRAINERS[bundle.domain](c, sub, ts.subset(train))
+        predict, _, _ = trainer(c, bundle)(c, sub, ts.subset(train))
         return predict(bundle.inputs_for(ids[held]))
 
     probs = crossfit.cross_predict(ids, fit_predict, n_folds=inj.folds, seed=inj.seed)

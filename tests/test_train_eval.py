@@ -54,7 +54,7 @@ def _cfg(*overrides):
 
 @pytest.mark.parametrize("method", ["majority_vote", "soft_labels"])
 def test_train_eval_end_to_end(tmp_path, monkeypatch, method):
-    monkeypatch.setattr(bundles, "load", lambda name, data_dir: _fake_bundle())
+    monkeypatch.setattr(bundles, "load", lambda name, data_dir, subset=None: _fake_bundle())
     result = run.execute(_cfg(f"method={method}"), tmp_path)
     m = result["metrics"]
     assert set(m) == {
@@ -66,7 +66,7 @@ def test_train_eval_end_to_end(tmp_path, monkeypatch, method):
 
 
 def test_test_sets_only_evaluated_in_final_stage(tmp_path, monkeypatch):
-    monkeypatch.setattr(bundles, "load", lambda name, data_dir: _fake_bundle())
+    monkeypatch.setattr(bundles, "load", lambda name, data_dir, subset=None: _fake_bundle())
     result = run.execute(_cfg("stage=final"), tmp_path)
     assert "secret/acc" in result["metrics"]
 
@@ -99,7 +99,7 @@ def _fake_pool_bundle(n=24, votes_per_item=8, seed=0):
 
 @pytest.mark.parametrize("method", ["oracle", "clean_votes"])
 def test_ambinoise_runs_train_on_injected_votes(tmp_path, monkeypatch, method):
-    monkeypatch.setattr(bundles, "load", lambda name, data_dir: _fake_pool_bundle())
+    monkeypatch.setattr(bundles, "load", lambda name, data_dir, subset=None: _fake_pool_bundle())
     cfg = _cfg(
         "data=ambinoise_10h",
         "data.noise.k=5",
@@ -120,11 +120,11 @@ def test_injection_model_writes_a_cross_fitted_ranking(tmp_path, monkeypatch):
     b.inputs_for = lambda ids: np.where(
         np.isin(ids, pool.loc[pool["label"] == 1, "item_id"])[:, None, None, None], 255, 0
     ).astype(np.uint8) * np.ones((1, 32, 32, 3), dtype=np.uint8)
-    monkeypatch.setattr(bundles, "load", lambda name, data_dir: b)
+    monkeypatch.setattr(bundles, "load", lambda name, data_dir, subset=None: b)
     from labeltriage.data import prepare
 
     monkeypatch.setattr(
-        prepare, "load_prepared", lambda name, d: (pool, None, {"classes": ["a", "b"]})
+        prepare, "load_prepared", lambda name, d, subset=None: (pool, None, {"classes": ["a", "b"]})
     )
     cfg = _cfg(
         "experiment=injection",
@@ -141,7 +141,9 @@ def test_labeltriage_method_routes_with_out_of_fold_scores(tmp_path, monkeypatch
     from labeltriage.experiments import features as fx
     from labeltriage.features import g1_votes, g2_reliability
 
-    monkeypatch.setattr(bundles, "load", lambda name, data_dir: _fake_pool_bundle(n=24))
+    monkeypatch.setattr(
+        bundles, "load", lambda name, data_dir, subset=None: _fake_pool_bundle(n=24)
+    )
 
     def fake_features(cfg, votes):
         f = pd.concat([g1_votes.compute(votes, 2), g2_reliability.compute(votes, 2)], axis=1)
@@ -171,7 +173,7 @@ def test_baseline_methods_train_end_to_end(tmp_path, monkeypatch, method):
     from labeltriage.features import build as fb
 
     b = _fake_pool_bundle()
-    monkeypatch.setattr(bundles, "load", lambda name, data_dir: b)
+    monkeypatch.setattr(bundles, "load", lambda name, data_dir, subset=None: b)
     ids = np.sort(b.votes["item_id"].unique())
     emb = pd.DataFrame(np.random.default_rng(0).standard_normal((len(ids), 4)), index=ids)
     monkeypatch.setattr(fx, "feature_inputs", lambda d, base: fb.FeatureInputs(None, emb))
@@ -186,7 +188,7 @@ def test_baseline_methods_train_end_to_end(tmp_path, monkeypatch, method):
 
 
 def test_coteaching_method_runs(tmp_path, monkeypatch):
-    monkeypatch.setattr(bundles, "load", lambda name, data_dir: _fake_pool_bundle())
+    monkeypatch.setattr(bundles, "load", lambda name, data_dir, subset=None: _fake_pool_bundle())
     cfg = _cfg("data=ambinoise_10h", "data.noise.num_annotators=20", "method=coteaching")
     result = run.execute(cfg, tmp_path)
     assert result["n_train"] == 20
@@ -196,7 +198,9 @@ def test_labeltriage_on_real_noise_trains_triage_on_ambinoise(tmp_path, monkeypa
     from labeltriage.experiments import features as fx
     from labeltriage.features import g1_votes, g2_reliability
 
-    monkeypatch.setattr(bundles, "load", lambda name, data_dir: _fake_pool_bundle(n=24))
+    monkeypatch.setattr(
+        bundles, "load", lambda name, data_dir, subset=None: _fake_pool_bundle(n=24)
+    )
 
     def fake_features(cfg, votes):
         f = pd.concat([g1_votes.compute(votes, 2), g2_reliability.compute(votes, 2)], axis=1)
@@ -216,7 +220,7 @@ def test_labeltriage_on_real_noise_trains_triage_on_ambinoise(tmp_path, monkeypa
 
 @pytest.mark.parametrize("method", ["neither", "errors_removed", "ambiguity_collapsed", "both"])
 def test_harm_counterfactuals_train(tmp_path, monkeypatch, method):
-    monkeypatch.setattr(bundles, "load", lambda name, data_dir: _fake_pool_bundle())
+    monkeypatch.setattr(bundles, "load", lambda name, data_dir, subset=None: _fake_pool_bundle())
     cfg = _cfg("data=ambinoise_10h", "data.noise.num_annotators=20", f"method={method}")
     assert run.execute(cfg, tmp_path)["n_train"] == 20
 
@@ -225,7 +229,9 @@ def test_labeltriage_run_saves_scored_votes_for_the_explorer(tmp_path, monkeypat
     from labeltriage.experiments import features as fx
     from labeltriage.features import g1_votes, g2_reliability
 
-    monkeypatch.setattr(bundles, "load", lambda name, data_dir: _fake_pool_bundle(n=24))
+    monkeypatch.setattr(
+        bundles, "load", lambda name, data_dir, subset=None: _fake_pool_bundle(n=24)
+    )
 
     def fake_features(cfg, votes):
         f = pd.concat([g1_votes.compute(votes, 2), g2_reliability.compute(votes, 2)], axis=1)

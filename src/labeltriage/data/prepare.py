@@ -122,11 +122,30 @@ def prepare(name: str, data_dir: str | Path) -> Path:
     return out_dir
 
 
-def load_prepared(name: str, data_dir: str | Path) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
+def subset_ids(name: str, subset: str) -> pd.Index:
+    """Item IDs kept by a frozen subset (``conf/splits/<subset>/<name>.csv``)."""
+    return splits.load_split(name, splits.splits_dir() / subset).index
+
+
+def load_prepared(
+    name: str, data_dir: str | Path, subset: str | None = None
+) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
+    """Votes, items and metadata; with ``subset`` (e.g. ``"mini"``), only that subset's items.
+
+    A subset keeps every item's original split, so the stage guard still applies to it.
+    """
     d = Path(data_dir) / "processed" / name
     meta = json.loads((d / "meta.json").read_text())
     votes = store.load(d / "votes.parquet", num_classes=len(meta["classes"]))
-    return votes, pd.read_parquet(d / "items.parquet"), meta
+    items = pd.read_parquet(d / "items.parquet")
+    if subset:
+        keep = subset_ids(name, subset)
+        missing = keep.difference(items.index)
+        if len(missing):
+            raise ValueError(f"{len(missing)} {subset} item(s) are not in processed/{name}")
+        items = items[items.index.isin(keep)]
+        votes = votes[votes["item_id"].isin(set(keep))].reset_index(drop=True)
+    return votes, items, meta
 
 
 def main(argv: list[str] | None = None) -> None:

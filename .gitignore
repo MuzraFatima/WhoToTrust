@@ -16,6 +16,10 @@ htmlcov/
 /data/
 /cache/
 /outputs/
+/cache_mini/
+/outputs_mini/
+/outputs_smoke/
+/cache_smoke/
 /multirun/
 /checkpoints/
 /wandb/

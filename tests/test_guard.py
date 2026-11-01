@@ -74,6 +74,12 @@ def test_bad_runs_are_rejected_with_reasons(repo):
     assert "no code commit" in text
 
 
+def test_mini_profile_runs_never_count(repo):
+    git, _, after = repo
+    rep = guard.check(pd.DataFrame([_run("mini", after) | {"subset": "mini"}]), git)
+    assert not rep.ok and "mini-profile run" in rep.rejected[0]
+
+
 def test_missing_tag_fails(tmp_path):
     _git(tmp_path, "init", "-q")
     rep = guard.check(pd.DataFrame(), guard.Git(tmp_path))

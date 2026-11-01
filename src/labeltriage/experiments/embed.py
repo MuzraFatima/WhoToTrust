@@ -140,9 +140,12 @@ def sentence_embed(model_name: str, batch_size: int):
     return lambda x: batched(run, x, batch_size)
 
 
-def item_inputs(base: str, data_dir: str | Path) -> tuple[pd.Index, Any, str, tuple[str, ...]]:
-    """(item ids, inputs aligned with them, domain, class names) for every item of ``base``."""
-    _, items, meta = prepare.load_prepared(base, data_dir)
+def item_inputs(
+    base: str, data_dir: str | Path, subset: str | None = None
+) -> tuple[pd.Index, Any, str, tuple[str, ...]]:
+    """(item ids, inputs aligned with them, domain, class names) for every item of ``base``
+    (or of its ``subset``)."""
+    _, items, meta = prepare.load_prepared(base, data_dir, subset)
     classes = tuple(meta["classes"])
     if base in ("cifar10h", "cifar10n"):
         x, _ = images.cifar10(data_dir, train=(base == "cifar10n"))
@@ -169,7 +172,7 @@ def load(path: str | Path) -> pd.DataFrame:
 def embed(cfg: DictConfig) -> dict[str, Any]:
     base = cfg.data.get("base", cfg.data.name)
     m = cfg.experiment.models
-    ids, inputs, domain, classes = item_inputs(base, cfg.paths.data_dir)
+    ids, inputs, domain, classes = item_inputs(base, cfg.paths.data_dir, cfg.data.get("subset"))
     if domain == "image":
         plaus = clip_zero_shot(classes, m.clip, m.batch_size)(inputs)
         emb = dinov2_embed(m.dinov2, m.batch_size)(inputs)

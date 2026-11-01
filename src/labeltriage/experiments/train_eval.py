@@ -24,7 +24,9 @@ Predictor = Callable[[Any], np.ndarray]
 
 def load_bundle(cfg: DictConfig) -> bundles.Bundle:
     """The base dataset's bundle, with an AmbiNoise draw applied when ``data.noise`` is set."""
-    bundle = bundles.load(cfg.data.get("base", cfg.data.name), cfg.paths.data_dir)
+    bundle = bundles.load(
+        cfg.data.get("base", cfg.data.name), cfg.paths.data_dir, cfg.data.get("subset")
+    )
     noise = cfg.data.get("noise")
     if noise is None:
         return bundle
@@ -238,7 +240,47 @@ def _train_text(cfg, bundle, ts) -> tuple[Predictor, list[float], str]:
     return predict, history, str(device)
 
 
+def _train_frozen(cfg, bundle, ts) -> tuple[Predictor, list[float], str]:
+    """A small MLP head on frozen embeddings (the mini profile's CPU trainer)."""
+    from labeltriage.train import frozen, loop
+
+    t = cfg.data.train
+    model_name = t.frozen_models[bundle.domain]
+    lcfg = loop.LoopConfig(
+        epochs=t.epochs,
+        batch_size=t.batch_size,
+        optimizer="adamw",
+        lr=t.lr,
+        weight_decay=t.weight_decay,
+        warmup_frac=t.get("warmup_frac", 0.0),
+    )
+    device = loop.device_default()
+
+    def encode(inputs):
+        return frozen.encode(bundle.domain, inputs, model_name, cfg.paths.cache_dir)
+
+    x = bundle.train_inputs
+    if bundle.domain == "image":
+        x = x[np.arange(len(x))]
+    coteach = coteaching_setting(cfg, bundle)
+    model, history = frozen.fit(
+        encode(x), ts, bundle.num_classes, lcfg, cfg.seed, device, t.get("hidden", 256), coteach
+    )
+
+    def predict(inputs):
+        return frozen.predict(model, encode(inputs), device=device)
+
+    return predict, history, str(device)
+
+
 TRAINERS = {"image": _train_image, "text": _train_text}
+
+
+def trainer(cfg: DictConfig, bundle: bundles.Bundle):
+    """The frozen-embedding trainer when the profile asks for it, else the domain's own."""
+    if cfg.data.train.get("backbone") == "frozen_head":
+        return _train_frozen
+    return TRAINERS[bundle.domain]
 
 
 def evaluate(predict: Predictor, bundle: bundles.Bundle, names, stage: str) -> dict[str, float]:
@@ -257,7 +299,9 @@ def eval_names(cfg: DictConfig) -> list[str]:
     names = list(cfg.data.evals.dev)
     if cfg.stage == "final":
         names += list(cfg.data.evals.final)
-    return names
+    # The mini profile skips sets too large for a laptop (CIFAR-10-C is 950,000 images).
+    skip = set(cfg.data.get("skip_evals") or ())
+    return [n for n in names if n not in skip]
 
 
 @task("train_eval")
@@ -267,7 +311,7 @@ def train_eval(cfg: DictConfig) -> dict[str, Any]:
     ts, method_metrics, artifacts = make_targets(cfg, bundle, rng)
 
     start = time.perf_counter()
-    predict, history, device = TRAINERS[bundle.domain](cfg, bundle, ts)
+    predict, history, device = trainer(cfg, bundle)(cfg, bundle, ts)
     train_seconds = time.perf_counter() - start
 
     routes = {}

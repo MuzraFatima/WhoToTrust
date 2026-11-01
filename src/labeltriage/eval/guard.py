@@ -5,7 +5,8 @@ A final-stage run is accepted only if:
 1. the ``prereg-v1`` tag exists;
 2. the run recorded the same hypotheses file as the one at the tag;
 3. the run's code commit is the tagged commit or a descendant of it;
-4. the run's working copy had no uncommitted changes.
+4. the run's working copy had no uncommitted changes;
+5. the run used the full data, not a subset such as the mini profile (A15).
 
 The working copy's own hypotheses file must also still match the tag.
 """
@@ -92,6 +93,9 @@ def check(runs: pd.DataFrame, git: Git | None = None) -> GuardReport:
             why.append(f"commit {commit[:10]} is not at or after {TAG}")
         if r.get("prov.git_dirty") is not False:
             why.append("uncommitted changes (or unknown)")
+        subset = r.get("subset")
+        if isinstance(subset, str) and subset:
+            why.append(f"{subset}-profile run on a data subset")
         if why:
             rep.rejected.append(f"{r.get('run', '?')}: {'; '.join(why)}")
         else:

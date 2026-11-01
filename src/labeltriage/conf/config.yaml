@@ -3,6 +3,8 @@ defaults:
   - method: majority_vote
   - experiment: smoke
   - _self_
+  # Last, so a profile can override paths and data settings: full (default) or mini (local CPU).
+  - profile: full
 
 seed: 0
 # "dev" runs may only touch train/val splits; "final" unlocks the test splits (Phase 6 only).

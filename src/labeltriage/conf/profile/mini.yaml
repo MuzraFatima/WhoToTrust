@@ -1,0 +1,22 @@
+# @package _global_
+# Local CPU profile (amendment A15): a frozen, stratified subset of each dataset
+# (conf/splits/mini, written by scripts/make_mini.py) and an MLP head on frozen embeddings
+# instead of fine-tuning ResNet-18 / DeBERTa. Separate cache and output folders, so nothing here
+# mixes with full runs. Mini runs never count towards the pre-registered verdicts (eval/guard.py).
+data:
+  subset: mini
+  skip_evals: [cifar10_c]
+  train:
+    backbone: frozen_head
+    frozen_models:
+      image: facebook/dinov2-small
+      text: sentence-transformers/all-MiniLM-L6-v2
+    hidden: 256
+    epochs: 40
+    batch_size: 64
+    lr: 1.0e-3
+    weight_decay: 1.0e-4
+    warmup_frac: 0.0
+paths:
+  cache_dir: ${oc.env:LT_CACHE_DIR,cache_mini}
+  output_dir: ${oc.env:LT_OUTPUT_DIR,outputs_mini}
