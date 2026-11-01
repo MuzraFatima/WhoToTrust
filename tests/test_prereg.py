@@ -67,9 +67,15 @@ def test_preregister_script_writes_record_and_picks_router(tmp_path):
     pilot.to_csv(tmp_path / "pilot.csv", index=False)
     tune.to_csv(tmp_path / "tune.csv", index=False)
     out = tmp_path / "prereg.md"
+    out.write_text(
+        "# Record\nkeep me\n<!-- detectability:begin -->\nSTALE_SECTION\n"
+        "<!-- detectability:end -->\ntail\n"
+    )
     rc = mod.main(
         [str(tmp_path / "pilot.csv"), "--tune", str(tmp_path / "tune.csv"), "--out", str(out)]
     )
     text = out.read_text()
     assert rc == 0
     assert "h0 = 0.5" in text and "nu = 1.0" in text
+    assert text.startswith("# Record\nkeep me") and text.endswith("tail\n")
+    assert "STALE_SECTION" not in text
